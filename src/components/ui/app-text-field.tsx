@@ -8,6 +8,7 @@ type Props = {
   onChangeText: (value: string) => void;
   secureTextEntry?: boolean;
   keyboardType?: TextInputProps['keyboardType'];
+  autoCapitalize?: TextInputProps['autoCapitalize'];
   autoComplete?: TextInputProps['autoComplete'];
   textContentType?: TextInputProps['textContentType'];
 };
@@ -18,6 +19,7 @@ export function AppTextField({
   onChangeText,
   secureTextEntry = false,
   keyboardType = 'default',
+  autoCapitalize = 'none',
   autoComplete,
   textContentType,
 }: Props) {
@@ -30,7 +32,7 @@ export function AppTextField({
         onChangeText={onChangeText}
         secureTextEntry={secureTextEntry}
         keyboardType={keyboardType}
-        autoCapitalize="none"
+        autoCapitalize={autoCapitalize}
         autoCorrect={false}
         autoComplete={autoComplete}
         textContentType={textContentType}
