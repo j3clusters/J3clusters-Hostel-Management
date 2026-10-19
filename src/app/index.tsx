@@ -10,7 +10,7 @@ import { useAuth } from '@/providers/auth-provider';
 
 export default function WelcomeScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, role, profileMissing } = useAuth();
 
   return (
     <Screen centered>
@@ -36,6 +36,20 @@ export default function WelcomeScreen() {
             <AppText variant="body" style={styles.tagline}>
               Signed in as {user.email}
             </AppText>
+            <AppText variant="body" style={styles.tagline}>
+              {profileMissing
+                ? 'Profile setup still needs to be run in Supabase.'
+                : role === 'owner'
+                  ? 'Owner account'
+                  : role === 'admin'
+                    ? 'Administrator account'
+                    : role === 'resident'
+                      ? 'Resident account'
+                      : 'Account role is not assigned yet.'}
+            </AppText>
+            {role === 'admin' ? (
+              <AppButton label="Review owner requests" onPress={() => router.push('/admin-owners')} />
+            ) : null}
             <AppButton
               label="Sign out"
               variant="secondary"
