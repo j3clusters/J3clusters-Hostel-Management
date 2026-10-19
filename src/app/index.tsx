@@ -47,8 +47,14 @@ export default function WelcomeScreen() {
                       ? 'Resident account'
                       : 'Account role is not assigned yet.'}
             </AppText>
+            {role === 'owner' ? (
+              <AppButton label="Add a property" onPress={() => router.push('/add-property')} />
+            ) : null}
             {role === 'admin' ? (
               <AppButton label="Review owner requests" onPress={() => router.push('/admin-owners')} />
+            ) : null}
+            {role === 'admin' ? (
+              <AppButton label="Review properties" onPress={() => router.push('/admin-properties')} />
             ) : null}
             <AppButton
               label="Sign out"
