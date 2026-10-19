@@ -33,6 +33,7 @@ export const Brand = {
   background: '#F7F8FC',
   white: '#FFFFFF',
   badgeBackground: '#E8F0FE',
+  danger: '#B42318',
 } as const;
 
 export const Fonts = Platform.select({

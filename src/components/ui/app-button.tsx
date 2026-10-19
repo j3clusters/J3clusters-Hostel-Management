@@ -6,17 +6,20 @@ type Props = {
   label: string;
   onPress: () => void;
   variant?: 'primary' | 'secondary';
+  disabled?: boolean;
 };
 
-export function AppButton({ label, onPress, variant = 'primary' }: Props) {
+export function AppButton({ label, onPress, variant = 'primary', disabled = false }: Props) {
   const isPrimary = variant === 'primary';
 
   return (
     <TouchableOpacity
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
-      style={[styles.base, isPrimary ? styles.primary : styles.secondary]}>
+      style={[styles.base, isPrimary ? styles.primary : styles.secondary, disabled && styles.disabled]}>
       <Text style={[styles.label, isPrimary ? styles.primaryLabel : styles.secondaryLabel]}>{label}</Text>
     </TouchableOpacity>
   );
@@ -46,5 +49,8 @@ const styles = StyleSheet.create({
   },
   secondaryLabel: {
     color: Brand.primary,
+  },
+  disabled: {
+    opacity: 0.5,
   },
 });

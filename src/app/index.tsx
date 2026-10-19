@@ -5,9 +5,12 @@ import { AppButton } from '@/components/ui/app-button';
 import { AppText } from '@/components/ui/app-text';
 import { Screen } from '@/components/ui/screen';
 import { Brand, Spacing } from '@/constants/theme';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/providers/auth-provider';
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const { user } = useAuth();
 
   return (
     <Screen centered>
@@ -16,7 +19,7 @@ export default function WelcomeScreen() {
       </View>
       <AppText variant="brand">J3cluster</AppText>
       <AppText variant="subtitle" style={styles.subtitle}>
-        Hotel Management
+        Hostel Management
       </AppText>
 
       <View style={styles.hero}>
@@ -28,6 +31,22 @@ export default function WelcomeScreen() {
 
       <View style={styles.actions}>
         <AppButton label="Find a Stay" onPress={() => router.push('/find-a-stay')} />
+        {user ? (
+          <>
+            <AppText variant="body" style={styles.tagline}>
+              Signed in as {user.email}
+            </AppText>
+            <AppButton
+              label="Sign out"
+              variant="secondary"
+              onPress={() => {
+                void supabase?.auth.signOut();
+              }}
+            />
+          </>
+        ) : (
+          <AppButton label="Sign in" variant="secondary" onPress={() => router.push('/sign-in')} />
+        )}
         <AppButton label="Owner Login" variant="secondary" onPress={() => router.push('/owner-login')} />
       </View>
     </Screen>
