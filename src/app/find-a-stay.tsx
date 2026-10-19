@@ -1,74 +1,35 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
 
-import { MaxContentWidth } from '@/constants/theme';
+import { AppButton } from '@/components/ui/app-button';
+import { AppText } from '@/components/ui/app-text';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Screen } from '@/components/ui/screen';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { Spacing } from '@/constants/theme';
 
 export default function FindAStayScreen() {
   const router = useRouter();
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Text style={styles.eyebrow}>J3cluster</Text>
-        <Text style={styles.title}>Find a Stay</Text>
-        <Text style={styles.description}>
-          Search for PGs, hostels, and hotels will be added in a later step. This screen confirms
-          the welcome button opens a real page.
-        </Text>
-
-        <TouchableOpacity
-          style={styles.button}
-          accessibilityRole="button"
-          onPress={() => router.back()}>
-          <Text style={styles.buttonText}>Back to welcome</Text>
-        </TouchableOpacity>
+    <Screen centered edges={['left', 'right', 'bottom']}>
+      <View style={styles.content}>
+        <AppText variant="eyebrow">J3cluster</AppText>
+        <StatusBadge label="In development" />
+        <EmptyState
+          title="No stays to show yet"
+          message="Search for PGs, hostels, and hotels will be added after accounts are connected. Nothing on this screen is a live listing."
+        />
+        <AppButton label="Back to welcome" onPress={() => router.back()} />
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F7F8FC',
-  },
-  container: {
-    flex: 1,
+  content: {
     width: '100%',
-    maxWidth: MaxContentWidth,
-    alignSelf: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 26,
-  },
-  eyebrow: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 3,
-    color: '#175CD3',
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#172B4D',
-  },
-  description: {
-    fontSize: 16,
-    lineHeight: 25,
-    color: '#667085',
-    marginTop: 12,
-  },
-  button: {
-    marginTop: 28,
-    backgroundColor: '#175CD3',
-    paddingVertical: 17,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    alignItems: 'flex-start',
+    gap: Spacing.three,
   },
 });

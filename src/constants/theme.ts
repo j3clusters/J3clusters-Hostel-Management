@@ -26,6 +26,15 @@ export const Colors = {
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
+export const Brand = {
+  primary: '#175CD3',
+  text: '#172B4D',
+  muted: '#667085',
+  background: '#F7F8FC',
+  white: '#FFFFFF',
+  badgeBackground: '#E8F0FE',
+} as const;
+
 export const Fonts = Platform.select({
   ios: {
     /** iOS `UIFontDescriptorSystemDesignDefault` */
