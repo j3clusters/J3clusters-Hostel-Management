@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { PropertyPhotoPlaceholder } from '@/components/property-photo-placeholder';
+import { SaveStayButton } from '@/components/save-stay-button';
 import { AppText } from '@/components/ui/app-text';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { categoryLabel, formatMonthlyRent, type PropertyCategory } from '@/constants/property';
@@ -17,17 +18,25 @@ export type PropertyCardData = {
 
 type Props = {
   listing: PropertyCardData;
+  saved: boolean;
+  saving?: boolean;
   onPress: () => void;
+  onSavePress: () => void;
 };
 
-export function PropertyCard({ listing, onPress }: Props) {
+export function PropertyCard({ listing, saved, saving = false, onPress, onSavePress }: Props) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`View details for ${listing.name}`}
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
-      <PropertyPhotoPlaceholder label={listing.name} />
+      <View>
+        <PropertyPhotoPlaceholder label={listing.name} />
+        <View style={styles.save}>
+          <SaveStayButton saved={saved} disabled={saving} onPress={onSavePress} />
+        </View>
+      </View>
       <View style={styles.body}>
         <StatusBadge label={categoryLabel[listing.category]} />
         <AppText variant="body" style={styles.name}>
@@ -58,6 +67,11 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.92,
+  },
+  save: {
+    position: 'absolute',
+    top: Spacing.two,
+    right: Spacing.two,
   },
   body: {
     width: '100%',

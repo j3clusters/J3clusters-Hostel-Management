@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -13,6 +13,9 @@ import { useAuth } from '@/providers/auth-provider';
 
 export default function SignUpScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ propertyId?: string; action?: string }>();
+  const propertyId = Array.isArray(params.propertyId) ? params.propertyId[0] : params.propertyId;
+  const action = Array.isArray(params.action) ? params.action[0] : params.action;
   const { configured } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -54,6 +57,11 @@ export default function SignUpScreen() {
       return;
     }
 
+    if (propertyId && action === 'save') {
+      router.replace(`/property/${propertyId}?action=save` as Href);
+      return;
+    }
+
     router.replace('/');
   }
 
@@ -88,7 +96,17 @@ export default function SignUpScreen() {
               disabled={submitting}
               onPress={() => void signUp()}
             />
-            <AppButton label="I already have an account" variant="secondary" onPress={() => router.replace('/sign-in')} />
+            <AppButton
+              label="I already have an account"
+              variant="secondary"
+              onPress={() =>
+                router.replace(
+                  propertyId && action === 'save'
+                    ? (`/sign-in?propertyId=${propertyId}&action=save` as Href)
+                    : '/sign-in',
+                )
+              }
+            />
           </>
         ) : (
           <SupabaseSetupNotice />

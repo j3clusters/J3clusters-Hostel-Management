@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { SupabaseSetupNotice } from '@/components/supabase-setup-notice';
@@ -13,11 +13,20 @@ import { useAuth } from '@/providers/auth-provider';
 
 export default function SignInScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ propertyId?: string; action?: string }>();
+  const propertyId = Array.isArray(params.propertyId) ? params.propertyId[0] : params.propertyId;
+  const action = Array.isArray(params.action) ? params.action[0] : params.action;
   const { configured, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (user && propertyId && action === 'save') {
+      router.replace(`/property/${propertyId}?action=save` as Href);
+    }
+  }, [action, propertyId, router, user]);
 
   async function signIn() {
     if (!supabase) {
@@ -40,6 +49,11 @@ export default function SignInScreen() {
 
     if (signInError) {
       setError(signInError.message);
+      return;
+    }
+
+    if (propertyId && action === 'save') {
+      router.replace(`/property/${propertyId}?action=save` as Href);
       return;
     }
 
@@ -69,7 +83,11 @@ export default function SignInScreen() {
             <>
               <AppText variant="eyebrow">J3cluster</AppText>
               <AppText variant="title">Sign in</AppText>
-              <AppText variant="body">Use the email and password for your resident account.</AppText>
+              <AppText variant="body">
+                {action === 'save'
+                  ? 'Sign in with email to save this stay. Phone sign-in is not available yet.'
+                  : 'Use the email and password for your account.'}
+              </AppText>
               <AppTextField
                 label="Email"
                 value={email}
@@ -88,7 +106,17 @@ export default function SignInScreen() {
               />
               {error ? <AppText style={styles.error}>{error}</AppText> : null}
               <AppButton label={submitting ? 'Signing in...' : 'Sign in'} disabled={submitting} onPress={() => void signIn()} />
-              <AppButton label="Create an account" variant="secondary" onPress={() => router.push('/sign-up')} />
+              <AppButton
+                label="Create an account"
+                variant="secondary"
+                onPress={() =>
+                  router.push(
+                    propertyId && action === 'save'
+                      ? (`/sign-up?propertyId=${propertyId}&action=save` as Href)
+                      : '/sign-up',
+                  )
+                }
+              />
               <AppButton label="Forgot password" variant="secondary" onPress={() => router.push('/reset-password')} />
             </>
           )

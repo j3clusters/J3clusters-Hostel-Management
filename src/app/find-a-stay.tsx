@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { PropertyCard } from '@/components/property-card';
+import { SaveStayPrompt } from '@/components/save-stay-prompt';
 import { AppButton } from '@/components/ui/app-button';
 import { AppText } from '@/components/ui/app-text';
 import { AppTextField } from '@/components/ui/app-text-field';
@@ -10,7 +11,9 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
 import { isPropertyCategory, propertyCategories, type PropertyCategory } from '@/constants/property';
 import { Brand, Radius, Spacing } from '@/constants/theme';
+import { removeSavedStay, saveApprovedStay } from '@/lib/saved-stays';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/providers/auth-provider';
 
 type Listing = {
   id: string;
@@ -25,7 +28,11 @@ type CategoryFilter = 'all' | PropertyCategory;
 
 export default function FindAStayScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [listings, setListings] = useState<Listing[]>([]);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [promptPropertyId, setPromptPropertyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [error, setError] = useState(supabase ? '' : 'Supabase is not connected.');
   const [reloadKey, setReloadKey] = useState(0);
@@ -64,6 +71,59 @@ export default function FindAStayScreen() {
       };
     }, [reloadKey]),
   );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!supabase || !user) {
+        return;
+      }
+
+      let active = true;
+      void supabase
+        .from('saved_properties')
+        .select('property_id')
+        .eq('user_id', user.id)
+        .then(({ data, error: loadError }) => {
+          if (!active) {
+            return;
+          }
+          if (loadError) {
+            setError(loadError.message);
+            return;
+          }
+          setSavedIds((data ?? []).map((row) => row.property_id));
+        });
+
+      return () => {
+        active = false;
+      };
+    }, [user]),
+  );
+
+  async function toggleSave(propertyId: string) {
+    if (!user) {
+      setPromptPropertyId(propertyId);
+      return;
+    }
+    if (!supabase || savingId) {
+      return;
+    }
+
+    const alreadySaved = savedIds.includes(propertyId);
+    setSavingId(propertyId);
+    setError('');
+    const saveError = alreadySaved ? await removeSavedStay(user.id, propertyId) : await saveApprovedStay(user.id, propertyId);
+    setSavingId(null);
+
+    if (saveError) {
+      setError(saveError);
+      return;
+    }
+
+    setSavedIds((current) =>
+      alreadySaved ? current.filter((id) => id !== propertyId) : [...current, propertyId],
+    );
+  }
 
   const visibleListings = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -122,10 +182,24 @@ export default function FindAStayScreen() {
             <PropertyCard
               key={listing.id}
               listing={listing}
+              saved={Boolean(user) && savedIds.includes(listing.id)}
+              saving={savingId === listing.id}
               onPress={() => router.push(`/property/${listing.id}` as Href)}
+              onSavePress={() => void toggleSave(listing.id)}
             />
           ))
         )}
+        <SaveStayPrompt
+          visible={promptPropertyId !== null}
+          onLater={() => setPromptPropertyId(null)}
+          onContinueWithEmail={() => {
+            const propertyId = promptPropertyId;
+            setPromptPropertyId(null);
+            if (propertyId) {
+              router.push(`/sign-in?propertyId=${propertyId}&action=save` as Href);
+            }
+          }}
+        />
       </View>
     </Screen>
   );
