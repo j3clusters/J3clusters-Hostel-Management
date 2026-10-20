@@ -89,7 +89,7 @@ export default function NotificationsScreen() {
       <View style={styles.content}>
         <AppText variant="eyebrow">J3cluster</AppText>
         <AppText variant="title">Notifications</AppText>
-        <AppText variant="body">Booking updates, visits, leave, maintenance, and notices show up here. This does not alert your phone.</AppText>
+        <AppText variant="body">Booking updates, visits, enquiries, leave, maintenance, and notices show up here. This does not alert your phone.</AppText>
         {!canUse ? (
           <AppText variant="body">{error}</AppText>
         ) : loading ? (
@@ -97,7 +97,7 @@ export default function NotificationsScreen() {
         ) : error && items.length === 0 ? (
           <AppText style={styles.error}>{error}</AppText>
         ) : items.length === 0 ? (
-          <EmptyState title="No notifications" message="A booking update, notice, leave request, or maintenance update will appear here." />
+          <EmptyState title="No notifications" message="A booking update, enquiry, notice, leave request, or maintenance update will appear here." />
         ) : (
           <>
             {items.map((item) => (
