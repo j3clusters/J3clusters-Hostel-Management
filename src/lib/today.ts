@@ -27,8 +27,11 @@ export async function loadToday(userId: string, role: string): Promise<{ error: 
   if (!supabase) {
     return { error: 'Supabase is not connected.', visits: [], arrivals: [] };
   }
+  if (role === 'admin') {
+    return loadAdminToday();
+  }
   if (role !== 'owner' && role !== 'resident') {
-    return { error: 'Today is for an owner or a resident.', visits: [], arrivals: [] };
+    return { error: 'Today is for an owner, a resident, or an administrator.', visits: [], arrivals: [] };
   }
 
   const today = kolkataToday();
@@ -75,6 +78,67 @@ export async function loadToday(userId: string, role: string): Promise<{ error: 
     error: '',
     visits: sortToday(toItems(visitResult.data ?? [], 'visit')),
     arrivals: sortToday(toItems(arrivalResult.data ?? [], 'arrival')),
+  };
+}
+
+async function loadAdminToday(): Promise<{ error: string; visits: TodayItem[]; arrivals: TodayItem[] }> {
+  if (!supabase) {
+    return { error: 'Supabase is not connected.', visits: [], arrivals: [] };
+  }
+
+  const { data, error } = await supabase.rpc('admin_today');
+  if (error) {
+    return { error: error.message, visits: [], arrivals: [] };
+  }
+
+  const rows = Array.isArray(data) ? data : [];
+  const visits: TodayItem[] = [];
+  const arrivals: TodayItem[] = [];
+  for (const row of rows) {
+    const item = toAdminItem(row);
+    if (!item) {
+      continue;
+    }
+    if (row.kind === 'visit') {
+      visits.push(item);
+    } else if (row.kind === 'arrival') {
+      arrivals.push(item);
+    }
+  }
+
+  return { error: '', visits: sortToday(visits), arrivals: sortToday(arrivals) };
+}
+
+function toAdminItem(row: {
+  kind?: string;
+  item_id?: string;
+  property_id?: string;
+  property_name?: string;
+  locality?: string;
+  city?: string;
+  part?: string | null;
+  status?: string;
+  bed_label?: string | null;
+}) {
+  if (typeof row.item_id !== 'string' || typeof row.property_id !== 'string' || typeof row.property_name !== 'string') {
+    return null;
+  }
+  if (typeof row.locality !== 'string' || typeof row.city !== 'string' || typeof row.status !== 'string') {
+    return null;
+  }
+  const status = row.kind === 'visit' && isVisitStatus(row.status) ? row.status : row.kind === 'arrival' && isBookingStatus(row.status) ? row.status : null;
+  if (!status) {
+    return null;
+  }
+  return {
+    id: row.item_id,
+    propertyId: row.property_id,
+    name: row.property_name,
+    locality: row.locality,
+    city: row.city,
+    part: typeof row.part === 'string' && isVisitPart(row.part) ? row.part : null,
+    status,
+    bedLabel: typeof row.bed_label === 'string' ? row.bed_label : null,
   };
 }
 

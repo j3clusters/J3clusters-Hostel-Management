@@ -42,6 +42,7 @@ export default function RootLayout() {
         <Stack.Screen name="property/[id]" options={{ title: 'Stay details', headerShown: true }} />
         <Stack.Screen name="saved-stays" options={{ title: 'Saved stays', headerShown: true }} />
         <Stack.Screen name="today" options={{ title: 'Today', headerShown: true }} />
+        <Stack.Screen name="week" options={{ title: 'This week', headerShown: true }} />
         <Stack.Screen name="visit-list" options={{ title: 'Visit list', headerShown: true }} />
         <Stack.Screen name="enquiries" options={{ title: 'Enquiries', headerShown: true }} />
         <Stack.Screen name="booking-requests" options={{ title: 'Booking requests', headerShown: true }} />

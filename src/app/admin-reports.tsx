@@ -79,6 +79,8 @@ export default function AdminReportsScreen() {
                 </AppText>
               </View>
             ))}
+            <AppButton label="Today" onPress={() => router.push('/today')} />
+            <AppButton label="This week" variant="secondary" onPress={() => router.push('/week')} />
             <AppButton label="Review owner requests" variant="secondary" onPress={() => router.push('/admin-owners')} />
             <AppButton label="Review properties" variant="secondary" onPress={() => router.push('/admin-properties')} />
             {error ? <AppText style={styles.error}>{error}</AppText> : null}

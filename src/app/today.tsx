@@ -16,7 +16,7 @@ import { useAuth } from '@/providers/auth-provider';
 export default function TodayScreen() {
   const router = useRouter();
   const { user, role } = useAuth();
-  const allowed = role === 'owner' || role === 'resident';
+  const allowed = role === 'owner' || role === 'resident' || role === 'admin';
   const [visits, setVisits] = useState<TodayItem[]>([]);
   const [arrivals, setArrivals] = useState<TodayItem[]>([]);
   const [loading, setLoading] = useState(Boolean(user && allowed));
@@ -50,15 +50,11 @@ export default function TodayScreen() {
       <View style={styles.content}>
         <AppText variant="eyebrow">J3cluster</AppText>
         <AppText variant="title">Today</AppText>
-        <AppText variant="body">
-          {role === 'owner'
-            ? 'Visits and arrivals at your properties for today in India time. Resident names and phone numbers are not shown.'
-            : 'Your visits and arrivals for today in India time. Other residents are not shown.'}
-        </AppText>
+        <AppText variant="body">{todayIntro(role)}</AppText>
         {!user ? (
           <AppText variant="body">Sign in to see today.</AppText>
         ) : !allowed ? (
-          <AppText variant="body">Today is for an owner or a resident.</AppText>
+          <AppText variant="body">Today is for an owner, a resident, or an administrator.</AppText>
         ) : loading ? (
           <View style={styles.skeleton} />
         ) : error && visits.length === 0 && arrivals.length === 0 ? (
@@ -86,11 +82,22 @@ export default function TodayScreen() {
               ))
             )}
             {error ? <AppText style={styles.error}>{error}</AppText> : null}
+            <AppButton label="This week" variant="secondary" onPress={() => router.push('/week')} />
           </>
         )}
       </View>
     </Screen>
   );
+}
+
+function todayIntro(role: string | null) {
+  if (role === 'owner') {
+    return 'Visits and arrivals at your properties for today in India time. Resident names and phone numbers are not shown.';
+  }
+  if (role === 'admin') {
+    return 'Visits and arrivals at every property for today in India time. Resident names and phone numbers are not shown.';
+  }
+  return 'Your visits and arrivals for today in India time. Other residents are not shown.';
 }
 
 function TodayCard({ item, kind, onOpen }: { item: TodayItem; kind: 'visit' | 'arrival'; onOpen: () => void }) {
