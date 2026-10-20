@@ -5,12 +5,15 @@ import { StyleSheet, View } from 'react-native';
 import { PropertyPhotoPlaceholder } from '@/components/property-photo-placeholder';
 import { SaveStayButton } from '@/components/save-stay-button';
 import { SaveStayPrompt } from '@/components/save-stay-prompt';
+import { AppButton } from '@/components/ui/app-button';
 import { AppText } from '@/components/ui/app-text';
 import { Screen } from '@/components/ui/screen';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { categoryLabel, formatMonthlyRent, isPropertyCategory } from '@/constants/property';
 import { Brand, Radius, Spacing } from '@/constants/theme';
+import { isVisitStatus, requestVisit, visitStatusLabel, type VisitStatus } from '@/lib/property-visits';
 import { removeSavedStay, saveApprovedStay } from '@/lib/saved-stays';
+import { type StayAction } from '@/lib/stay-action';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -38,9 +41,11 @@ export default function PropertyDetailsScreen() {
   const [loading, setLoading] = useState(Boolean(supabase && propertyId));
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [promptVisible, setPromptVisible] = useState(false);
+  const [visitStatus, setVisitStatus] = useState<VisitStatus | null>(null);
+  const [requestingVisit, setRequestingVisit] = useState(false);
+  const [promptAction, setPromptAction] = useState<StayAction | null>(null);
   const [error, setError] = useState(propertyId ? '' : 'This stay could not be opened.');
-  const completedSave = useRef('');
+  const completedAction = useRef('');
 
   useEffect(() => {
     if (!supabase || !propertyId) {
@@ -99,23 +104,53 @@ export default function PropertyDetailsScreen() {
   }, [propertyId, user]);
 
   useEffect(() => {
-    if (!user || !propertyId || action !== 'save') {
+    if (!supabase || !user || !propertyId) {
       return;
     }
 
-    const key = `${user.id}:${propertyId}`;
-    if (completedSave.current === key) {
+    let active = true;
+    void supabase
+      .from('property_visits')
+      .select('status')
+      .eq('user_id', user.id)
+      .eq('property_id', propertyId)
+      .in('status', ['requested', 'confirmed', 'rescheduled'])
+      .maybeSingle()
+      .then(({ data, error: loadError }) => {
+        if (!active || loadError || !data || !isVisitStatus(data.status)) {
+          return;
+        }
+        setVisitStatus(data.status);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [propertyId, user]);
+
+  useEffect(() => {
+    if (!user || !propertyId || (action !== 'save' && action !== 'visit')) {
       return;
     }
-    completedSave.current = key;
 
-    void saveApprovedStay(user.id, propertyId).then((saveError) => {
-      if (saveError) {
-        completedSave.current = '';
-        setError(saveError);
+    const key = `${action}:${user.id}:${propertyId}`;
+    if (completedAction.current === key) {
+      return;
+    }
+    completedAction.current = key;
+
+    const pending = action === 'save' ? saveApprovedStay(user.id, propertyId) : requestVisit(user.id, propertyId);
+    void pending.then((actionError) => {
+      if (actionError) {
+        completedAction.current = '';
+        setError(actionError);
         return;
       }
-      setSaved(true);
+      if (action === 'save') {
+        setSaved(true);
+      } else {
+        setVisitStatus('requested');
+      }
       router.setParams({ action: '' });
     });
   }, [action, propertyId, router, user]);
@@ -125,7 +160,7 @@ export default function PropertyDetailsScreen() {
       return;
     }
     if (!user) {
-      setPromptVisible(true);
+      setPromptAction('save');
       return;
     }
 
@@ -140,6 +175,31 @@ export default function PropertyDetailsScreen() {
     }
 
     setSaved((current) => !current);
+  }
+
+  async function askForVisit() {
+    if (!propertyId) {
+      return;
+    }
+    if (!user) {
+      setPromptAction('visit');
+      return;
+    }
+    if (visitStatus) {
+      return;
+    }
+
+    setRequestingVisit(true);
+    setError('');
+    const visitError = await requestVisit(user.id, propertyId);
+    setRequestingVisit(false);
+
+    if (visitError) {
+      setError(visitError);
+      return;
+    }
+
+    setVisitStatus('requested');
   }
 
   return (
@@ -167,17 +227,27 @@ export default function PropertyDetailsScreen() {
             </AppText>
             {property.address ? <AppText variant="body">{property.address}</AppText> : null}
             {property.description ? <AppText variant="body">{property.description}</AppText> : null}
-            <StatusBadge label="Enquiry not available yet" />
+            {visitStatus ? (
+              <StatusBadge label={`Visit ${visitStatusLabel[visitStatus]}`} />
+            ) : (
+              <AppButton
+                label={requestingVisit ? 'Requesting...' : 'Request a visit'}
+                disabled={requestingVisit}
+                onPress={() => void askForVisit()}
+              />
+            )}
+            <AppText variant="body">A visit request is not a booking. Enquiries are not available yet.</AppText>
             {error ? <AppText style={styles.error}>{error}</AppText> : null}
           </>
         )}
         <SaveStayPrompt
-          visible={promptVisible}
-          onLater={() => setPromptVisible(false)}
+          visible={promptAction !== null}
+          onLater={() => setPromptAction(null)}
           onContinueWithEmail={() => {
-            setPromptVisible(false);
-            if (propertyId) {
-              router.push(`/sign-in?propertyId=${propertyId}&action=save` as Href);
+            const nextAction = promptAction;
+            setPromptAction(null);
+            if (propertyId && nextAction) {
+              router.push(`/sign-in?propertyId=${propertyId}&action=${nextAction}` as Href);
             }
           }}
         />

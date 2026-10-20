@@ -8,6 +8,7 @@ import { AppText } from '@/components/ui/app-text';
 import { AppTextField } from '@/components/ui/app-text-field';
 import { Screen } from '@/components/ui/screen';
 import { Brand, Spacing } from '@/constants/theme';
+import { isStayAction, stayReturnPath } from '@/lib/stay-action';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -23,8 +24,8 @@ export default function SignInScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (user && propertyId && action === 'save') {
-      router.replace(`/property/${propertyId}?action=save` as Href);
+    if (user && propertyId && isStayAction(action)) {
+      router.replace(stayReturnPath(propertyId, action) as Href);
     }
   }, [action, propertyId, router, user]);
 
@@ -52,8 +53,8 @@ export default function SignInScreen() {
       return;
     }
 
-    if (propertyId && action === 'save') {
-      router.replace(`/property/${propertyId}?action=save` as Href);
+    if (propertyId && isStayAction(action)) {
+      router.replace(stayReturnPath(propertyId, action) as Href);
       return;
     }
 
@@ -84,9 +85,11 @@ export default function SignInScreen() {
               <AppText variant="eyebrow">J3cluster</AppText>
               <AppText variant="title">Sign in</AppText>
               <AppText variant="body">
-                {action === 'save'
-                  ? 'Sign in with email to save this stay. Phone sign-in is not available yet.'
-                  : 'Use the email and password for your account.'}
+                {action === 'visit'
+                  ? 'Sign in with email to request this visit. Phone sign-in is not available yet.'
+                  : action === 'save'
+                    ? 'Sign in with email to save this stay. Phone sign-in is not available yet.'
+                    : 'Use the email and password for your account.'}
               </AppText>
               <AppTextField
                 label="Email"
@@ -111,8 +114,8 @@ export default function SignInScreen() {
                 variant="secondary"
                 onPress={() =>
                   router.push(
-                    propertyId && action === 'save'
-                      ? (`/sign-up?propertyId=${propertyId}&action=save` as Href)
+                    propertyId && isStayAction(action)
+                      ? (`/sign-up?propertyId=${propertyId}&action=${action}` as Href)
                       : '/sign-up',
                   )
                 }

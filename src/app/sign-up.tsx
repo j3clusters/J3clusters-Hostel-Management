@@ -8,6 +8,7 @@ import { AppText } from '@/components/ui/app-text';
 import { AppTextField } from '@/components/ui/app-text-field';
 import { Screen } from '@/components/ui/screen';
 import { Brand, Spacing } from '@/constants/theme';
+import { isStayAction, stayReturnPath } from '@/lib/stay-action';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -57,8 +58,8 @@ export default function SignUpScreen() {
       return;
     }
 
-    if (propertyId && action === 'save') {
-      router.replace(`/property/${propertyId}?action=save` as Href);
+    if (propertyId && isStayAction(action)) {
+      router.replace(stayReturnPath(propertyId, action) as Href);
       return;
     }
 
@@ -101,8 +102,8 @@ export default function SignUpScreen() {
               variant="secondary"
               onPress={() =>
                 router.replace(
-                  propertyId && action === 'save'
-                    ? (`/sign-in?propertyId=${propertyId}&action=save` as Href)
+                  propertyId && isStayAction(action)
+                    ? (`/sign-in?propertyId=${propertyId}&action=${action}` as Href)
                     : '/sign-in',
                 )
               }
