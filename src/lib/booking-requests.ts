@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase';
 export const bookingStatusLabel = {
   requested: 'Requested',
   confirmed: 'Confirmed',
+  checked_in: 'Checked in',
+  checked_out: 'Checked out',
   rejected: 'Rejected',
   cancelled: 'Cancelled',
 } as const;
@@ -55,6 +57,24 @@ export async function confirmBookingRequest(requestId: string, bedId: string) {
     target_bed: bedId,
   });
 
+  return error ? error.message : '';
+}
+
+export async function checkInBooking(requestId: string) {
+  if (!supabase) {
+    return 'Supabase is not connected.';
+  }
+
+  const { error } = await supabase.rpc('check_in_booking', { request_id: requestId });
+  return error ? error.message : '';
+}
+
+export async function checkOutBooking(requestId: string) {
+  if (!supabase) {
+    return 'Supabase is not connected.';
+  }
+
+  const { error } = await supabase.rpc('check_out_booking', { request_id: requestId });
   return error ? error.message : '';
 }
 

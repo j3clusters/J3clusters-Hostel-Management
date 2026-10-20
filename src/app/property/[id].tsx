@@ -212,7 +212,7 @@ export default function PropertyDetailsScreen() {
       .select('status')
       .eq('user_id', user.id)
       .eq('property_id', propertyId)
-      .in('status', ['requested', 'confirmed'])
+      .in('status', ['requested', 'confirmed', 'checked_in'])
       .maybeSingle()
       .then(({ data, error: loadError }) => {
         if (!active || loadError || !data || !isBookingStatus(data.status)) {
@@ -450,7 +450,7 @@ export default function PropertyDetailsScreen() {
               />
             )}
             <AppText variant="body">
-              A booking request does not take payment. Confirmation holds one bed and does not reserve a second bed for someone else.
+              A booking request does not take payment. Check-in keeps the confirmed bed until check-out.
             </AppText>
             {error ? <AppText style={styles.error}>{error}</AppText> : null}
           </>
