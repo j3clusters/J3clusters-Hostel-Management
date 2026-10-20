@@ -8,6 +8,8 @@ export type RentCharge = {
   amount: number | string;
   periodMonth: string;
   status: RentChargeStatus;
+  receiptNumber: string | null;
+  receivedAt: string | null;
 };
 
 export function isRentChargeStatus(value: string): value is RentChargeStatus {
@@ -57,15 +59,26 @@ export async function recordRentCharge(requestId: string): Promise<{ error: stri
       amount: row.charge_amount,
       periodMonth: row.charge_month,
       status: 'due',
+      receiptNumber: null,
+      receivedAt: null,
     },
   };
 }
 
-export async function markRentReceived(chargeId: string) {
+export async function markRentReceived(chargeId: string): Promise<{ error: string; receiptNumber: string | null; receivedAt: string | null }> {
   if (!supabase) {
-    return 'Supabase is not connected.';
+    return { error: 'Supabase is not connected.', receiptNumber: null, receivedAt: null };
   }
 
-  const { error } = await supabase.rpc('mark_rent_received', { target_charge: chargeId });
-  return error ? error.message : '';
+  const { data, error } = await supabase.rpc('mark_rent_received', { target_charge: chargeId });
+  if (error) {
+    return { error: error.message, receiptNumber: null, receivedAt: null };
+  }
+
+  const row = Array.isArray(data) ? data[0] : null;
+  if (!row || typeof row.receipt_number !== 'string' || typeof row.received_at !== 'string') {
+    return { error: 'The receipt could not be saved.', receiptNumber: null, receivedAt: null };
+  }
+
+  return { error: '', receiptNumber: row.receipt_number, receivedAt: row.received_at };
 }

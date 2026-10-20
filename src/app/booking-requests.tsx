@@ -27,6 +27,7 @@ import {
   rentChargeLabel,
   type RentCharge,
 } from '@/lib/rent-charges';
+import { receiptLabel } from '@/lib/receipts';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -153,7 +154,7 @@ export default function BookingRequestsScreen() {
       let active = true;
       void supabase
         .from('rent_charges')
-        .select('id, booking_request_id, amount, period_month, status')
+        .select('id, booking_request_id, amount, period_month, status, receipt_number, received_at')
         .order('period_month', { ascending: false })
         .then(({ data, error: loadError }) => {
           if (!active) {
@@ -180,6 +181,8 @@ export default function BookingRequestsScreen() {
                   amount: row.amount,
                   periodMonth: row.period_month,
                   status: row.status,
+                  receiptNumber: typeof row.receipt_number === 'string' ? row.receipt_number : null,
+                  receivedAt: typeof row.received_at === 'string' ? row.received_at : null,
                 },
               ];
             }),
@@ -201,7 +204,7 @@ export default function BookingRequestsScreen() {
       let active = true;
       void supabase
         .from('deposits')
-        .select('id, booking_request_id, amount, status')
+        .select('id, booking_request_id, amount, status, receipt_number, received_at')
         .order('created_at', { ascending: false })
         .then(({ data, error: loadError }) => {
           if (!active) {
@@ -222,6 +225,8 @@ export default function BookingRequestsScreen() {
                   bookingRequestId: row.booking_request_id,
                   amount: row.amount,
                   status: row.status,
+                  receiptNumber: typeof row.receipt_number === 'string' ? row.receipt_number : null,
+                  receivedAt: typeof row.received_at === 'string' ? row.received_at : null,
                 },
               ];
             }),
@@ -346,15 +351,21 @@ export default function BookingRequestsScreen() {
 
     setBusyId(chargeId);
     setError('');
-    const markError = await markRentReceived(chargeId);
+    const result = await markRentReceived(chargeId);
     setBusyId(null);
 
-    if (markError) {
-      setError(markError);
+    if (result.error || !result.receiptNumber || !result.receivedAt) {
+      setError(result.error || 'The receipt could not be saved.');
       return;
     }
 
-    setCharges((current) => current.map((charge) => (charge.id === chargeId ? { ...charge, status: 'received' } : charge)));
+    setCharges((current) =>
+      current.map((charge) =>
+        charge.id === chargeId
+          ? { ...charge, status: 'received', receiptNumber: result.receiptNumber, receivedAt: result.receivedAt }
+          : charge,
+      ),
+    );
   }
 
   async function saveDeposit(requestId: string) {
@@ -384,15 +395,21 @@ export default function BookingRequestsScreen() {
 
     setBusyId(depositId);
     setError('');
-    const markError = await markDepositReceived(depositId);
+    const result = await markDepositReceived(depositId);
     setBusyId(null);
 
-    if (markError) {
-      setError(markError);
+    if (result.error || !result.receiptNumber || !result.receivedAt) {
+      setError(result.error || 'The receipt could not be saved.');
       return;
     }
 
-    setDeposits((current) => current.map((deposit) => (deposit.id === depositId ? { ...deposit, status: 'received' } : deposit)));
+    setDeposits((current) =>
+      current.map((deposit) =>
+        deposit.id === depositId
+          ? { ...deposit, status: 'received', receiptNumber: result.receiptNumber, receivedAt: result.receivedAt }
+          : deposit,
+      ),
+    );
   }
 
   async function changeStatus(requestId: string, status: 'rejected' | 'cancelled', list: 'mine' | 'incoming') {
@@ -430,7 +447,7 @@ export default function BookingRequestsScreen() {
         <AppText variant="eyebrow">J3cluster</AppText>
         <AppText variant="title">Booking requests</AppText>
         <AppText variant="body">
-          A request does not take payment. Check-in keeps the confirmed bed. Check-out frees it. Only the owner can mark rent or a deposit received.
+          A request does not take payment. Check-in keeps the confirmed bed. Check-out frees it. Marking rent or a deposit received writes a receipt.
         </AppText>
         {loading ? (
           <View style={styles.skeleton} />
@@ -626,6 +643,9 @@ function BookingCard({
       {rentCharges.map((charge) => (
         <View key={charge.id} style={styles.rent}>
           <AppText variant="body">{rentChargeLabel(charge)}</AppText>
+          {charge.receiptNumber && charge.receivedAt ? (
+            <AppText variant="body">{receiptLabel(charge.receiptNumber, charge.receivedAt)}</AppText>
+          ) : null}
           {onMarkReceived && charge.status === 'due' ? (
             <AppButton
               label={busy ? 'Saving...' : 'Mark received'}
@@ -638,6 +658,9 @@ function BookingCard({
       {deposit ? (
         <View style={styles.rent}>
           <AppText variant="body">{depositLabel(deposit)}</AppText>
+          {deposit.receiptNumber && deposit.receivedAt ? (
+            <AppText variant="body">{receiptLabel(deposit.receiptNumber, deposit.receivedAt)}</AppText>
+          ) : null}
           {onMarkDepositReceived && deposit.status === 'due' ? (
             <AppButton
               label={busy ? 'Saving...' : 'Mark deposit received'}
