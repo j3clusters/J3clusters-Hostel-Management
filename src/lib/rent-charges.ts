@@ -1,11 +1,18 @@
 import { supabase } from '@/lib/supabase';
 
+export type RentChargeStatus = 'due' | 'received';
+
 export type RentCharge = {
   id: string;
   bookingRequestId: string;
   amount: number | string;
   periodMonth: string;
+  status: RentChargeStatus;
 };
+
+export function isRentChargeStatus(value: string): value is RentChargeStatus {
+  return value === 'due' || value === 'received';
+}
 
 export function currentRentMonth() {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -17,14 +24,14 @@ export function currentRentMonth() {
   return `${parts.slice(0, 7)}-01`;
 }
 
-export function rentChargeLabel(charge: Pick<RentCharge, 'amount' | 'periodMonth'>) {
+export function rentChargeLabel(charge: Pick<RentCharge, 'amount' | 'periodMonth' | 'status'>) {
   const amount = Number(charge.amount);
   const rent = Number.isFinite(amount) ? `₹${amount.toLocaleString('en-IN')}` : 'Rent unavailable';
   const month = new Date(`${charge.periodMonth.slice(0, 10)}T00:00:00`).toLocaleDateString('en-IN', {
     month: 'long',
     year: 'numeric',
   });
-  return `${month} · ${rent} due`;
+  return `${month} · ${rent} ${charge.status === 'received' ? 'received' : 'due'}`;
 }
 
 export async function recordRentCharge(requestId: string): Promise<{ error: string; charge: RentCharge | null }> {
@@ -49,6 +56,16 @@ export async function recordRentCharge(requestId: string): Promise<{ error: stri
       bookingRequestId: requestId,
       amount: row.charge_amount,
       periodMonth: row.charge_month,
+      status: 'due',
     },
   };
+}
+
+export async function markRentReceived(chargeId: string) {
+  if (!supabase) {
+    return 'Supabase is not connected.';
+  }
+
+  const { error } = await supabase.rpc('mark_rent_received', { target_charge: chargeId });
+  return error ? error.message : '';
 }

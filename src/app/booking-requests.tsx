@@ -17,7 +17,14 @@ import {
   updateBookingRequest,
   type BookingStatus,
 } from '@/lib/booking-requests';
-import { currentRentMonth, recordRentCharge, rentChargeLabel, type RentCharge } from '@/lib/rent-charges';
+import {
+  currentRentMonth,
+  isRentChargeStatus,
+  markRentReceived,
+  recordRentCharge,
+  rentChargeLabel,
+  type RentCharge,
+} from '@/lib/rent-charges';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -141,7 +148,7 @@ export default function BookingRequestsScreen() {
       let active = true;
       void supabase
         .from('rent_charges')
-        .select('id, booking_request_id, amount, period_month')
+        .select('id, booking_request_id, amount, period_month, status')
         .order('period_month', { ascending: false })
         .then(({ data, error: loadError }) => {
           if (!active) {
@@ -153,7 +160,12 @@ export default function BookingRequestsScreen() {
           }
           setCharges(
             (data ?? []).flatMap((row) => {
-              if (typeof row.id !== 'string' || typeof row.booking_request_id !== 'string' || typeof row.period_month !== 'string') {
+              if (
+                typeof row.id !== 'string' ||
+                typeof row.booking_request_id !== 'string' ||
+                typeof row.period_month !== 'string' ||
+                !isRentChargeStatus(row.status)
+              ) {
                 return [];
               }
               return [
@@ -162,6 +174,7 @@ export default function BookingRequestsScreen() {
                   bookingRequestId: row.booking_request_id,
                   amount: row.amount,
                   periodMonth: row.period_month,
+                  status: row.status,
                 },
               ];
             }),
@@ -271,6 +284,24 @@ export default function BookingRequestsScreen() {
     setCharges((current) => [result.charge as RentCharge, ...current]);
   }
 
+  async function markReceived(chargeId: string) {
+    if (busyId) {
+      return;
+    }
+
+    setBusyId(chargeId);
+    setError('');
+    const markError = await markRentReceived(chargeId);
+    setBusyId(null);
+
+    if (markError) {
+      setError(markError);
+      return;
+    }
+
+    setCharges((current) => current.map((charge) => (charge.id === chargeId ? { ...charge, status: 'received' } : charge)));
+  }
+
   async function changeStatus(requestId: string, status: 'rejected' | 'cancelled', list: 'mine' | 'incoming') {
     if (busyId) {
       return;
@@ -306,7 +337,7 @@ export default function BookingRequestsScreen() {
         <AppText variant="eyebrow">J3cluster</AppText>
         <AppText variant="title">Booking requests</AppText>
         <AppText variant="body">
-          A request does not take payment. Check-in keeps the confirmed bed. Check-out frees it. Recorded rent stays due.
+          A request does not take payment. Check-in keeps the confirmed bed. Check-out frees it. Only the owner can mark rent received.
         </AppText>
         {loading ? (
           <View style={styles.skeleton} />
@@ -324,13 +355,13 @@ export default function BookingRequestsScreen() {
                 <BookingCard
                   key={request.id}
                   request={request}
-                  busy={busyId === request.id}
+                  busy={busyId === request.id || charges.some((charge) => charge.id === busyId && charge.bookingRequestId === request.id)}
                   onOpen={() => router.push(`/property/${request.propertyId}` as Href)}
                   onCancel={
                     request.status === 'requested' ? () => void changeStatus(request.id, 'cancelled', 'mine') : undefined
                   }
                   onCheckOut={request.status === 'checked_in' ? () => void checkOut(request.id, 'mine') : undefined}
-                  rentLabels={charges.filter((charge) => charge.bookingRequestId === request.id).map(rentChargeLabel)}
+                  rentCharges={charges.filter((charge) => charge.bookingRequestId === request.id)}
                 />
               ))
             )}
@@ -346,7 +377,7 @@ export default function BookingRequestsScreen() {
                     <BookingCard
                       key={request.id}
                       request={request}
-                      busy={busyId === request.id}
+                      busy={busyId === request.id || charges.some((charge) => charge.id === busyId && charge.bookingRequestId === request.id)}
                       onOpen={() => router.push(`/property/${request.propertyId}` as Href)}
                       beds={
                         request.status === 'requested'
@@ -362,7 +393,8 @@ export default function BookingRequestsScreen() {
                       onCancelConfirmation={
                         request.status === 'confirmed' ? () => void changeStatus(request.id, 'cancelled', 'incoming') : undefined
                       }
-                      rentLabels={charges.filter((charge) => charge.bookingRequestId === request.id).map(rentChargeLabel)}
+                      rentCharges={charges.filter((charge) => charge.bookingRequestId === request.id)}
+                      onMarkReceived={(chargeId) => void markReceived(chargeId)}
                       onRecordRent={
                         request.status === 'checked_in' &&
                         !charges.some(
@@ -440,7 +472,8 @@ function BookingCard({
   onCheckOut,
   onCancelConfirmation,
   onRecordRent,
-  rentLabels = [],
+  rentCharges = [],
+  onMarkReceived,
   onReject,
   onCancel,
 }: {
@@ -453,7 +486,8 @@ function BookingCard({
   onCheckOut?: () => void;
   onCancelConfirmation?: () => void;
   onRecordRent?: () => void;
-  rentLabels?: string[];
+  rentCharges?: RentCharge[];
+  onMarkReceived?: (chargeId: string) => void;
   onReject?: () => void;
   onCancel?: () => void;
 }) {
@@ -467,10 +501,17 @@ function BookingCard({
         {request.locality}, {request.city}
       </AppText>
       {request.bedLabel ? <AppText variant="body">{request.bedLabel}</AppText> : null}
-      {rentLabels.map((label) => (
-        <AppText key={label} variant="body">
-          {label}
-        </AppText>
+      {rentCharges.map((charge) => (
+        <View key={charge.id} style={styles.rent}>
+          <AppText variant="body">{rentChargeLabel(charge)}</AppText>
+          {onMarkReceived && charge.status === 'due' ? (
+            <AppButton
+              label={busy ? 'Saving...' : 'Mark received'}
+              disabled={busy}
+              onPress={() => onMarkReceived(charge.id)}
+            />
+          ) : null}
+        </View>
       ))}
       {request.status === 'confirmed' && !onCheckIn ? (
         <AppText variant="body">Waiting for the owner to check you in.</AppText>
@@ -525,6 +566,10 @@ const styles = StyleSheet.create({
   name: {
     color: Brand.text,
     fontWeight: '800',
+  },
+  rent: {
+    width: '100%',
+    gap: Spacing.two,
   },
   skeleton: {
     width: '100%',
