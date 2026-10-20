@@ -65,7 +65,7 @@ export default function TodayScreen() {
               Visits
             </AppText>
             {visits.length === 0 ? (
-              <EmptyState title="No visits today" message="A visit dated for today will appear here until it is completed or cancelled." />
+              <EmptyState illustration="activity" title="No visits today" message="A visit dated for today will appear here until it is completed or cancelled." />
             ) : (
               visits.map((item) => (
                 <TodayCard key={item.id} item={item} kind="visit" onOpen={() => router.push(`/property/${item.propertyId}` as Href)} />

@@ -116,7 +116,7 @@ export default function SavedStaysScreen() {
         ) : error ? (
           <AppText style={styles.error}>{error}</AppText>
         ) : stays.length === 0 ? (
-          <EmptyState title="No saved stays" message="Tap the heart on a stay to keep it here." />
+          <EmptyState illustration="saved" title="No saved stays" message="Tap the heart on a stay to keep it here." />
         ) : (
           stays.map((stay) => (
             <PropertyCard

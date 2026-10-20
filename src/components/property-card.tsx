@@ -5,7 +5,7 @@ import { SaveStayButton } from '@/components/save-stay-button';
 import { AppText } from '@/components/ui/app-text';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { categoryLabel, formatMonthlyRent, type PropertyCategory } from '@/constants/property';
-import { Brand, Radius, Spacing } from '@/constants/theme';
+import { Brand, Radius, Shadow, Spacing } from '@/constants/theme';
 
 export type PropertyCardData = {
   id: string;
@@ -41,7 +41,7 @@ export function PropertyCard({ listing, saved, saving = false, reviewLabel, onPr
       </View>
       <View style={styles.body}>
         <StatusBadge label={categoryLabel[listing.category]} />
-        <AppText variant="body" style={styles.name}>
+        <AppText variant="body" numberOfLines={2} style={styles.name}>
           {listing.name}
         </AppText>
         <AppText variant="body">
@@ -67,6 +67,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.card,
     borderWidth: 1,
     overflow: 'hidden',
+    ...Shadow.card,
   },
   pressed: {
     opacity: 0.92,

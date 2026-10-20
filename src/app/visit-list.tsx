@@ -161,7 +161,7 @@ export default function VisitListScreen() {
               Your requests
             </AppText>
             {mine.length === 0 ? (
-              <EmptyState title="No visit requests" message="Open a stay and choose Request a visit." />
+              <EmptyState illustration="activity" title="No visit requests" message="Open a stay and choose Request a visit." />
             ) : (
               mine.map((visit) => (
                 <VisitCard

@@ -2,6 +2,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { MetricGrid } from '@/components/dashboard/metric-grid';
+import { EmptyPropertyIllustration } from '@/components/illustrations/brand-illustrations';
 import { AppButton } from '@/components/ui/app-button';
 import { AppText } from '@/components/ui/app-text';
 import { Screen } from '@/components/ui/screen';
@@ -71,26 +73,21 @@ export default function ResidentReportScreen() {
         ) : report ? (
           <>
             <View style={styles.card}>
-              <AppText variant="body">Checked in</AppText>
-              <AppText variant="body" style={styles.value}>
+              {!report.stayName ? <EmptyPropertyIllustration width={96} /> : null}
+              <AppText variant="caption">Checked in</AppText>
+              <AppText variant="section" style={styles.value}>
                 {report.stayName ? report.stayName : 'Not checked in'}
               </AppText>
               {report.bedLabel ? <AppText variant="body">{report.bedLabel}</AppText> : null}
             </View>
-            {rows.map((row) => (
-              <View key={row.label} style={styles.card}>
-                <AppText variant="body">{row.label}</AppText>
-                <AppText variant="body" style={styles.value}>
-                  {row.value}
-                </AppText>
-              </View>
-            ))}
+            <MetricGrid rows={rows} />
             <AppButton label="Today" onPress={() => router.push('/today')} />
             <AppButton label="This week" variant="secondary" onPress={() => router.push('/week')} />
             <AppButton label="Visit list" variant="secondary" onPress={() => router.push('/visit-list')} />
             <AppButton label="Booking requests" variant="secondary" onPress={() => router.push('/booking-requests')} />
             <AppButton label="Maintenance" variant="secondary" onPress={() => router.push('/maintenance')} />
             <AppButton label="Leave" variant="secondary" onPress={() => router.push('/leave')} />
+            <AppButton label="Notices" variant="secondary" onPress={() => router.push('/announcements')} />
             {error ? <AppText style={styles.error}>{error}</AppText> : null}
           </>
         ) : null}

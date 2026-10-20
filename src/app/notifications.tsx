@@ -108,7 +108,12 @@ export default function NotificationsScreen() {
         ) : (
           <>
             {items.map((item) => (
-              <Pressable key={item.id} accessibilityRole="button" onPress={() => void openItem(item)} style={styles.card}>
+              <Pressable
+                key={item.id}
+                accessibilityRole="button"
+                accessibilityLabel={item.title}
+                onPress={() => void openItem(item)}
+                style={[styles.card, item.readAt ? null : styles.unread]}>
                 {item.readAt ? null : <StatusBadge label="New" />}
                 <AppText variant="body" style={styles.name}>
                   {item.title}
@@ -139,6 +144,10 @@ const styles = StyleSheet.create({
     borderRadius: Radius.card,
     borderWidth: 1,
     padding: Spacing.three,
+  },
+  unread: {
+    backgroundColor: Brand.primarySoft,
+    borderColor: Brand.primaryLight,
   },
   name: {
     color: Brand.text,

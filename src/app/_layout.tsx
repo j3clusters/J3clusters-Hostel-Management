@@ -1,8 +1,9 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, View } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { RoleTabBar } from '@/components/navigation/role-tab-bar';
 import { Brand } from '@/constants/theme';
 import { AuthProvider } from '@/providers/auth-provider';
 
@@ -15,6 +16,7 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
       <AuthProvider>
+      <View style={{ flex: 1 }}>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -32,7 +34,7 @@ export default function RootLayout() {
         <Stack.Screen name="admin-reports" options={{ title: 'Reports', headerShown: true }} />
         <Stack.Screen name="add-property" options={{ title: 'Add a property', headerShown: true }} />
         <Stack.Screen name="my-properties" options={{ title: 'My properties', headerShown: true }} />
-        <Stack.Screen name="owner-report" options={{ title: 'My report', headerShown: true }} />
+        <Stack.Screen name="owner-report" options={{ title: 'Home', headerShown: true }} />
         <Stack.Screen name="expenses" options={{ title: 'Expenses', headerShown: true }} />
         <Stack.Screen name="maintenance" options={{ title: 'Maintenance', headerShown: true }} />
         <Stack.Screen name="leave" options={{ title: 'Leave', headerShown: true }} />
@@ -48,11 +50,18 @@ export default function RootLayout() {
         <Stack.Screen name="booking-requests" options={{ title: 'Booking requests', headerShown: true }} />
         <Stack.Screen name="resident-profile" options={{ title: 'Resident profile', headerShown: true }} />
         <Stack.Screen name="resident-report" options={{ title: 'My stay', headerShown: true }} />
+        <Stack.Screen name="activity" options={{ title: 'Activity', headerShown: true }} />
+        <Stack.Screen name="owner-requests" options={{ title: 'Requests', headerShown: true }} />
+        <Stack.Screen name="owner-ledger" options={{ title: 'Ledger', headerShown: true }} />
+        <Stack.Screen name="admin-home" options={{ title: 'Home', headerShown: true }} />
+        <Stack.Screen name="account" options={{ title: 'Account', headerShown: true }} />
         <Stack.Screen name="owner-profile" options={{ title: 'Owner profile', headerShown: true }} />
         <Stack.Screen name="sign-in" options={{ title: 'Sign in', headerShown: true }} />
         <Stack.Screen name="sign-up" options={{ title: 'Create account', headerShown: true }} />
         <Stack.Screen name="reset-password" options={{ title: 'Reset password', headerShown: true }} />
       </Stack>
+      <RoleTabBar />
+      </View>
       </AuthProvider>
     </ThemeProvider>
   );

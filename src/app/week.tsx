@@ -59,7 +59,7 @@ export default function WeekScreen() {
         ) : error && days.length === 0 ? (
           <AppText style={styles.error}>{error}</AppText>
         ) : days.length === 0 ? (
-          <EmptyState title="Nothing this week" message="A visit or move-in in the next 7 days will appear here until it is completed or the resident is checked in." />
+          <EmptyState illustration="activity" title="Nothing this week" message="A visit or move-in in the next 7 days will appear here until it is completed or the resident is checked in." />
         ) : (
           <>
             {days.map((day) => (

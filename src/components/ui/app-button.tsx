@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { Brand, Radius } from '@/constants/theme';
 
@@ -13,15 +13,20 @@ export function AppButton({ label, onPress, variant = 'primary', disabled = fals
   const isPrimary = variant === 'primary';
 
   return (
-    <TouchableOpacity
+    <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={[styles.base, isPrimary ? styles.primary : styles.secondary, disabled && styles.disabled]}>
+      style={({ pressed }) => [
+        styles.base,
+        isPrimary ? styles.primary : styles.secondary,
+        disabled && styles.disabled,
+        pressed && !disabled && styles.pressed,
+      ]}>
       <Text style={[styles.label, isPrimary ? styles.primaryLabel : styles.secondaryLabel]}>{label}</Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -41,7 +46,7 @@ const styles = StyleSheet.create({
   secondary: {
     backgroundColor: Brand.white,
     borderWidth: 1,
-    borderColor: Brand.primary,
+    borderColor: Brand.border,
   },
   label: {
     fontSize: 16,
@@ -51,9 +56,13 @@ const styles = StyleSheet.create({
     color: Brand.white,
   },
   secondaryLabel: {
-    color: Brand.primary,
+    color: Brand.primaryDark,
   },
   disabled: {
-    opacity: 0.5,
+    opacity: 0.45,
+  },
+  pressed: {
+    transform: [{ scale: 0.98 }],
+    opacity: 0.92,
   },
 });

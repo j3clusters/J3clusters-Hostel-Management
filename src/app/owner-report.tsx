@@ -2,6 +2,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { MetricGrid } from '@/components/dashboard/metric-grid';
+import { OwnerWelcomeIllustration } from '@/components/illustrations/brand-illustrations';
 import { AppButton } from '@/components/ui/app-button';
 import { AppText } from '@/components/ui/app-text';
 import { Screen } from '@/components/ui/screen';
@@ -61,8 +63,9 @@ export default function OwnerReportScreen() {
   return (
     <Screen edges={['left', 'right', 'bottom']}>
       <View style={styles.content}>
-        <AppText variant="eyebrow">J3cluster</AppText>
-        <AppText variant="title">My report</AppText>
+        <OwnerWelcomeIllustration />
+        <AppText variant="eyebrow">J3 Cluster</AppText>
+        <AppText variant="title">Owner home</AppText>
         <AppText variant="body">Counts for your properties only. Today follows India time. Resident names and phone numbers are not shown.</AppText>
         {role !== 'owner' ? (
           <AppText variant="body">This report is for an owner.</AppText>
@@ -72,20 +75,14 @@ export default function OwnerReportScreen() {
           <AppText style={styles.error}>{error}</AppText>
         ) : (
           <>
-            {rows.map((row) => (
-              <View key={row.label} style={styles.card}>
-                <AppText variant="body">{row.label}</AppText>
-                <AppText variant="body" style={styles.value}>
-                  {row.value}
-                </AppText>
-              </View>
-            ))}
+            <MetricGrid rows={rows} />
             <AppButton label="Today" onPress={() => router.push('/today')} />
             <AppButton label="This week" variant="secondary" onPress={() => router.push('/week')} />
-            <AppButton label="Visit list" variant="secondary" onPress={() => router.push('/visit-list')} />
-            <AppButton label="Booking requests" variant="secondary" onPress={() => router.push('/booking-requests')} />
-            <AppButton label="Maintenance" variant="secondary" onPress={() => router.push('/maintenance')} />
-            <AppButton label="Leave" variant="secondary" onPress={() => router.push('/leave')} />
+            <AppButton label="Add a property" variant="secondary" onPress={() => router.push('/add-property')} />
+            <AppButton label="My properties" variant="secondary" onPress={() => router.push('/my-properties')} />
+            <AppButton label="Requests" variant="secondary" onPress={() => router.push('/owner-requests')} />
+            <AppButton label="Expenses" variant="secondary" onPress={() => router.push('/expenses')} />
+            <AppButton label="Notices" variant="secondary" onPress={() => router.push('/announcements')} />
             {error ? <AppText style={styles.error}>{error}</AppText> : null}
           </>
         )}

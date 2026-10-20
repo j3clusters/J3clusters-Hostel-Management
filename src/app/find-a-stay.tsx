@@ -2,6 +2,7 @@ import { type Href, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { CityIllustration } from '@/components/illustrations/brand-illustrations';
 import { PropertyCard } from '@/components/property-card';
 import { SaveStayPrompt } from '@/components/save-stay-prompt';
 import { AppButton } from '@/components/ui/app-button';
@@ -151,8 +152,9 @@ export default function FindAStayScreen() {
   return (
     <Screen edges={['left', 'right', 'bottom']}>
       <View style={styles.content}>
-        <AppText variant="eyebrow">J3cluster</AppText>
-        <AppText variant="title">Find a Stay</AppText>
+        <CityIllustration />
+        <AppText variant="eyebrow">J3 Cluster</AppText>
+        <AppText variant="title">Find your next stay</AppText>
         <AppText variant="body">Search approved PG, hostel, and hotel stays. No account is required.</AppText>
         <AppTextField label="City or locality" value={search} onChangeText={setSearch} autoCapitalize="words" />
         <View style={styles.filters}>
@@ -166,6 +168,9 @@ export default function FindAStayScreen() {
             />
           ))}
         </View>
+        {visibleListings.length > 0 ? (
+          <AppText variant="caption">{visibleListings.length === 1 ? '1 stay' : `${visibleListings.length} stays`}</AppText>
+        ) : null}
         {loading ? (
           <>
             <View style={styles.skeleton} />
@@ -185,11 +190,12 @@ export default function FindAStayScreen() {
           </>
         ) : listings.length === 0 ? (
           <EmptyState
+            illustration="property"
             title="No approved stays yet"
             message="Only properties an administrator has approved are shown here. Nothing on this screen is sample data."
           />
         ) : visibleListings.length === 0 ? (
-          <EmptyState title="No matching stays" message="Try another city, locality, or property type." />
+          <EmptyState illustration="property" title="No matching stays" message="Try another city, locality, or property type." />
         ) : (
           visibleListings.map((listing) => (
             <PropertyCard

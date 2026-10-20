@@ -27,17 +27,42 @@ export const Colors = {
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Brand = {
-  primary: '#246BFD',
-  text: '#172B4D',
-  muted: '#667085',
-  background: '#F7F8FC',
+  primary: '#6254E8',
+  primaryDark: '#493BC6',
+  primaryLight: '#EEEBFF',
+  primarySoft: '#F2F0FF',
+  text: '#211C46',
+  textSecondary: '#6F708A',
+  muted: '#6F708A',
+  background: '#F8F7FD',
   white: '#FFFFFF',
-  sand: '#E8CBA8',
-  border: '#E4E7EC',
-  badgeBackground: '#E8F0FE',
+  card: '#FFFFFF',
+  surface: '#F2F0FA',
+  sand: '#FFB99A',
+  accent: '#FFB99A',
+  accentLight: '#FFF0E8',
+  border: '#E7E4F4',
+  badgeBackground: '#EEEBFF',
   success: '#16865C',
+  successLight: '#E7F6EE',
   warning: '#D97706',
+  warningLight: '#FFF4E5',
   danger: '#D92D20',
+  dangerLight: '#FDECEC',
+  info: '#476CFA',
+  infoLight: '#EAF0FF',
+} as const;
+
+export const colors = Brand;
+
+export const Shadow = {
+  card: {
+    shadowColor: '#211C46',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
 } as const;
 
 export const Radius = {

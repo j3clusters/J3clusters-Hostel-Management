@@ -496,7 +496,7 @@ export default function BookingRequestsScreen() {
               Your requests
             </AppText>
             {mine.length === 0 ? (
-              <EmptyState title="No booking requests" message="Open a stay and choose Request a booking." />
+              <EmptyState illustration="activity" title="No booking requests" message="Open a stay and choose Request a booking." />
             ) : (
               mine.map((request) => (
                 <BookingCard

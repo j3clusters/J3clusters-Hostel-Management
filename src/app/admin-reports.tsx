@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { MetricGrid } from '@/components/dashboard/metric-grid';
 import { AppButton } from '@/components/ui/app-button';
 import { AppText } from '@/components/ui/app-text';
 import { Screen } from '@/components/ui/screen';
@@ -71,14 +72,7 @@ export default function AdminReportsScreen() {
           <AppText style={styles.error}>{error}</AppText>
         ) : (
           <>
-            {rows.map((row) => (
-              <View key={row.label} style={styles.card}>
-                <AppText variant="body">{row.label}</AppText>
-                <AppText variant="body" style={styles.value}>
-                  {row.value}
-                </AppText>
-              </View>
-            ))}
+            <MetricGrid rows={rows} />
             <AppButton label="Today" onPress={() => router.push('/today')} />
             <AppButton label="This week" variant="secondary" onPress={() => router.push('/week')} />
             <AppButton label="Review owner requests" variant="secondary" onPress={() => router.push('/admin-owners')} />

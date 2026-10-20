@@ -11,7 +11,10 @@ type Props = {
 };
 
 export function PropertyCover({ label, coverPath }: Props) {
-  const [photoUrl, setPhotoUrl] = useState('');
+  const [photo, setPhoto] = useState<{ path: string; url: string } | null>(null);
+  const [failedPath, setFailedPath] = useState('');
+  const photoUrl = photo?.path === coverPath ? photo.url : '';
+  const failed = Boolean(coverPath) && failedPath === coverPath && !photoUrl;
 
   useEffect(() => {
     if (!supabase || !coverPath) {
@@ -23,10 +26,14 @@ export function PropertyCover({ label, coverPath }: Props) {
       .from('property-photos')
       .createSignedUrl(coverPath, 60 * 30)
       .then(({ data, error }) => {
-        if (!active || error || !data?.signedUrl) {
+        if (!active) {
           return;
         }
-        setPhotoUrl(data.signedUrl);
+        if (error || !data?.signedUrl) {
+          setFailedPath(coverPath);
+          return;
+        }
+        setPhoto({ path: coverPath, url: data.signedUrl });
       });
 
     return () => {
@@ -34,7 +41,7 @@ export function PropertyCover({ label, coverPath }: Props) {
     };
   }, [coverPath]);
 
-  if (!photoUrl) {
+  if (!photoUrl || failed) {
     return <PropertyPhotoPlaceholder label={label} />;
   }
 
@@ -43,6 +50,13 @@ export function PropertyCover({ label, coverPath }: Props) {
       source={{ uri: photoUrl }}
       style={styles.image}
       contentFit="cover"
+      cachePolicy="memory-disk"
+      transition={200}
+      onError={() => {
+        if (coverPath) {
+          setFailedPath(coverPath);
+        }
+      }}
       accessibilityLabel={`${label} cover photo`}
     />
   );
