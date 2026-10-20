@@ -16,7 +16,7 @@ export default function WelcomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!supabase || !user || (role !== 'owner' && role !== 'resident')) {
+      if (!supabase || !user || (role !== 'owner' && role !== 'resident' && role !== 'admin')) {
         return;
       }
 
@@ -86,7 +86,7 @@ export default function WelcomeScreen() {
             <AppButton label="Enquiries" variant="secondary" onPress={() => router.push('/enquiries')} />
             <AppButton label="Booking requests" variant="secondary" onPress={() => router.push('/booking-requests')} />
             {role === 'resident' ? <AppButton label="My stay" onPress={() => router.push('/resident-report')} /> : null}
-            {role === 'owner' || role === 'resident' ? (
+            {role === 'owner' || role === 'resident' || role === 'admin' ? (
               <AppButton
                 label={unreadCount > 0 ? `Notifications (${unreadCount})` : 'Notifications'}
                 variant="secondary"

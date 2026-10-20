@@ -14,10 +14,12 @@ import { useAuth } from '@/providers/auth-provider';
 export default function NotificationsScreen() {
   const router = useRouter();
   const { user, role } = useAuth();
-  const canUse = role === 'owner' || role === 'resident';
+  const canUse = role === 'owner' || role === 'resident' || role === 'admin';
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(canUse);
-  const [error, setError] = useState(!user ? 'Sign in to see notifications.' : canUse ? '' : 'Notifications are for residents and owners.');
+  const [error, setError] = useState(
+    !user ? 'Sign in to see notifications.' : canUse ? '' : 'Notifications are for residents, owners, and administrators.',
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -89,7 +91,9 @@ export default function NotificationsScreen() {
       <View style={styles.content}>
         <AppText variant="eyebrow">J3cluster</AppText>
         <AppText variant="title">Notifications</AppText>
-        <AppText variant="body">Booking updates, visits, enquiries, leave, maintenance, and notices show up here. This does not alert your phone.</AppText>
+        <AppText variant="body">
+          Booking updates, visits, enquiries, property reviews, owner requests, leave, maintenance, and notices show up here. This does not alert your phone.
+        </AppText>
         {!canUse ? (
           <AppText variant="body">{error}</AppText>
         ) : loading ? (
@@ -97,7 +101,10 @@ export default function NotificationsScreen() {
         ) : error && items.length === 0 ? (
           <AppText style={styles.error}>{error}</AppText>
         ) : items.length === 0 ? (
-          <EmptyState title="No notifications" message="A booking update, enquiry, notice, leave request, or maintenance update will appear here." />
+          <EmptyState
+            title="No notifications"
+            message="A booking update, property review, owner request, enquiry, notice, leave request, or maintenance update will appear here."
+          />
         ) : (
           <>
             {items.map((item) => (
