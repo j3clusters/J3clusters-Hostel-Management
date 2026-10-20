@@ -85,6 +85,7 @@ export default function ResidentReportScreen() {
                 </AppText>
               </View>
             ))}
+            <AppButton label="Today" onPress={() => router.push('/today')} />
             <AppButton label="Visit list" variant="secondary" onPress={() => router.push('/visit-list')} />
             <AppButton label="Booking requests" variant="secondary" onPress={() => router.push('/booking-requests')} />
             <AppButton label="Maintenance" variant="secondary" onPress={() => router.push('/maintenance')} />
