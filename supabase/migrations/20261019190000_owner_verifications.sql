@@ -1,7 +1,6 @@
--- Run this once in the Supabase SQL Editor, after the profiles migration.
--- A person can ask to become an owner. They cannot approve themselves.
+-- Safe to run again. A person can ask to become an owner. They cannot approve themselves.
 
-create table public.owner_verifications (
+create table if not exists public.owner_verifications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null unique references public.profiles (id) on delete cascade,
   full_name text not null,
@@ -20,6 +19,9 @@ alter table public.owner_verifications enable row level security;
 
 revoke all on public.owner_verifications from anon, authenticated;
 grant select, insert on public.owner_verifications to authenticated;
+
+drop policy if exists "Users read their own owner request" on public.owner_verifications;
+drop policy if exists "Users submit their own pending owner request" on public.owner_verifications;
 
 create policy "Users read their own owner request"
   on public.owner_verifications
