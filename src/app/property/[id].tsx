@@ -2,7 +2,7 @@ import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { PropertyPhotoPlaceholder } from '@/components/property-photo-placeholder';
+import { PropertyCover } from '@/components/property-cover';
 import { SaveStayButton } from '@/components/save-stay-button';
 import { SaveStayPrompt } from '@/components/save-stay-prompt';
 import { AppButton } from '@/components/ui/app-button';
@@ -32,6 +32,7 @@ type PropertyDetails = {
   address: string | null;
   description: string | null;
   monthly_rent: number | string;
+  cover_path: string | null;
 };
 
 function firstParam(value: string | string[] | undefined) {
@@ -66,7 +67,7 @@ export default function PropertyDetailsScreen() {
 
     void supabase
       .from('properties')
-      .select('name, category, city, locality, address, description, monthly_rent')
+      .select('name, category, city, locality, address, description, monthly_rent, cover_path')
       .eq('id', propertyId)
       .eq('status', 'approved')
       .maybeSingle()
@@ -298,7 +299,7 @@ export default function PropertyDetailsScreen() {
         ) : (
           <>
             <View style={styles.hero}>
-              <PropertyPhotoPlaceholder label={property.name} />
+              <PropertyCover label={property.name} coverPath={property.cover_path} />
               <View style={styles.save}>
                 <SaveStayButton saved={Boolean(user) && saved} disabled={saving} onPress={() => void toggleSave()} />
               </View>

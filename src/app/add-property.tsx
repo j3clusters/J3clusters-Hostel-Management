@@ -1,3 +1,4 @@
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -8,6 +9,7 @@ import { AppTextField } from '@/components/ui/app-text-field';
 import { Screen } from '@/components/ui/screen';
 import { propertyCategories, type PropertyCategory } from '@/constants/property';
 import { Brand, Spacing } from '@/constants/theme';
+import { uploadPropertyCover } from '@/lib/property-photos';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -24,6 +26,8 @@ export default function AddPropertyScreen() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   async function submitProperty() {
     if (!supabase || !user) {
@@ -49,26 +53,70 @@ export default function AddPropertyScreen() {
     setSubmitting(true);
     setError('');
     setMessage('');
-    const { error: insertError } = await supabase.from('properties').insert({
-      owner_id: user.id,
-      name: name.trim(),
-      category,
-      city: city.trim(),
-      locality: locality.trim(),
-      address: address.trim(),
-      description: description.trim(),
-      monthly_rent: monthlyRent,
-      currency: 'INR',
-      status: 'pending',
-    });
+    const { data, error: insertError } = await supabase
+      .from('properties')
+      .insert({
+        owner_id: user.id,
+        name: name.trim(),
+        category,
+        city: city.trim(),
+        locality: locality.trim(),
+        address: address.trim(),
+        description: description.trim(),
+        monthly_rent: monthlyRent,
+        currency: 'INR',
+        status: 'pending',
+      })
+      .select('id')
+      .single();
     setSubmitting(false);
 
-    if (insertError) {
-      setError(insertError.message);
+    if (insertError || !data) {
+      setError(insertError?.message || 'The property could not be submitted.');
       return;
     }
 
+    setCreatedId(data.id);
     setMessage('Submitted for review. It will not appear in Find a Stay until an administrator approves it.');
+  }
+
+  async function addCoverPhoto() {
+    if (!createdId || uploadingPhoto) {
+      return;
+    }
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setError('Allow photo access to add a cover photo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [16, 10],
+      quality: 0.7,
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    setUploadingPhoto(true);
+    setError('');
+    const uploadError = await uploadPropertyCover(
+      createdId,
+      result.assets[0].uri,
+      result.assets[0].mimeType ?? 'image/jpeg',
+    );
+    setUploadingPhoto(false);
+
+    if (uploadError) {
+      setError(uploadError);
+      return;
+    }
+
+    setMessage('Cover photo saved. Visitors will see it after an administrator approves the stay.');
   }
 
   return (
@@ -108,11 +156,19 @@ export default function AddPropertyScreen() {
             <AppTextField label="Monthly rent in INR" value={rent} onChangeText={setRent} keyboardType="decimal-pad" />
             {error ? <AppText style={styles.error}>{error}</AppText> : null}
             {message ? <AppText variant="body">{message}</AppText> : null}
-            <AppButton
-              label={submitting ? 'Submitting...' : 'Submit for review'}
-              disabled={submitting}
-              onPress={() => void submitProperty()}
-            />
+            {createdId ? (
+              <AppButton
+                label={uploadingPhoto ? 'Uploading...' : 'Add cover photo'}
+                disabled={uploadingPhoto}
+                onPress={() => void addCoverPhoto()}
+              />
+            ) : (
+              <AppButton
+                label={submitting ? 'Submitting...' : 'Submit for review'}
+                disabled={submitting}
+                onPress={() => void submitProperty()}
+              />
+            )}
           </>
         )}
       </View>

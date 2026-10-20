@@ -15,29 +15,13 @@ type Mode = 'choose' | 'create' | 'login';
 
 export default function OwnerLoginScreen() {
   const router = useRouter();
-  const { configured, user, role, reloadRole } = useAuth();
+  const { configured, user, role } = useAuth();
   const [mode, setMode] = useState<Mode>('choose');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  async function openOwnerAccount() {
-    if (!supabase) {
-      return;
-    }
-
-    const { error: openError } = await supabase.rpc('open_owner_account');
-    if (openError) {
-      setError(openError.message);
-      return false;
-    }
-
-    await reloadRole();
-    router.replace('/');
-    return true;
-  }
 
   async function createAccount() {
     if (!supabase) {
@@ -60,7 +44,6 @@ export default function OwnerLoginScreen() {
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: trimmedEmail,
       password,
-      options: { data: { account_type: 'owner' } },
     });
     setSubmitting(false);
 
@@ -74,7 +57,7 @@ export default function OwnerLoginScreen() {
       return;
     }
 
-    await openOwnerAccount();
+    router.replace('/owner-profile');
   }
 
   async function login() {
@@ -102,7 +85,7 @@ export default function OwnerLoginScreen() {
       return;
     }
 
-    await openOwnerAccount();
+    router.replace('/owner-profile');
   }
 
   return (
@@ -120,19 +103,16 @@ export default function OwnerLoginScreen() {
               <>
                 <AppText variant="body">Signed in as {user.email}</AppText>
                 <AppText variant="body">This is an owner account.</AppText>
+                <AppButton label="Owner profile" onPress={() => router.replace('/owner-profile')} />
                 <AppButton label="Add a property" onPress={() => router.replace('/add-property')} />
               </>
             ) : user ? (
               <>
                 <AppText variant="body">Signed in as {user.email}</AppText>
-                <AppButton
-                  label={submitting ? 'Opening...' : 'Use this account'}
-                  disabled={submitting}
-                  onPress={() => {
-                    setSubmitting(true);
-                    void openOwnerAccount().finally(() => setSubmitting(false));
-                  }}
-                />
+                <AppText variant="body">
+                  Set up the owner profile. An administrator still has to approve owner access.
+                </AppText>
+                <AppButton label="Set up owner profile" onPress={() => router.replace('/owner-profile')} />
                 <AppButton
                   label="Sign out"
                   variant="secondary"

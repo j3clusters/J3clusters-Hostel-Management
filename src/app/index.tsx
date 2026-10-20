@@ -51,6 +51,11 @@ export default function WelcomeScreen() {
                       ? 'Resident account'
                       : 'Account role is not assigned yet.'}
             </AppText>
+            <AppButton
+              label={role === 'owner' ? 'Owner profile' : 'Resident profile'}
+              variant="secondary"
+              onPress={() => router.push(role === 'owner' ? '/owner-profile' : '/resident-profile')}
+            />
             <AppButton label="Saved stays" variant="secondary" onPress={() => router.push('/saved-stays')} />
             <AppButton label="Visit list" variant="secondary" onPress={() => router.push('/visit-list')} />
             <AppButton label="Enquiries" variant="secondary" onPress={() => router.push('/enquiries')} />

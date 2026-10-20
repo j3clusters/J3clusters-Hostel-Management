@@ -33,7 +33,7 @@ export default function SavedStaysScreen() {
       let active = true;
       void supabase
         .from('saved_properties')
-        .select('id, property_id, properties(id, name, category, city, locality, monthly_rent)')
+        .select('id, property_id, properties(id, name, category, city, locality, monthly_rent, cover_path)')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .then(({ data, error: loadError }) => {
@@ -60,6 +60,7 @@ export default function SavedStaysScreen() {
                 city: property.city,
                 locality: property.locality,
                 monthly_rent: property.monthly_rent,
+                cover_path: property.cover_path,
               },
             ];
           });

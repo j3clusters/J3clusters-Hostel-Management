@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { PropertyPhotoPlaceholder } from '@/components/property-photo-placeholder';
+import { PropertyCover } from '@/components/property-cover';
 import { SaveStayButton } from '@/components/save-stay-button';
 import { AppText } from '@/components/ui/app-text';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -14,6 +14,7 @@ export type PropertyCardData = {
   city: string;
   locality: string;
   monthly_rent: number | string;
+  cover_path?: string | null;
 };
 
 type Props = {
@@ -32,7 +33,7 @@ export function PropertyCard({ listing, saved, saving = false, onPress, onSavePr
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
       <View>
-        <PropertyPhotoPlaceholder label={listing.name} />
+        <PropertyCover label={listing.name} coverPath={listing.cover_path ?? null} />
         <View style={styles.save}>
           <SaveStayButton saved={saved} disabled={saving} onPress={onSavePress} />
         </View>

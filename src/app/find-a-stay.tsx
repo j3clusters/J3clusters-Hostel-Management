@@ -22,6 +22,7 @@ type Listing = {
   city: string;
   locality: string;
   monthly_rent: number | string;
+  cover_path: string | null;
 };
 
 type CategoryFilter = 'all' | PropertyCategory;
@@ -50,7 +51,7 @@ export default function FindAStayScreen() {
 
       void supabase
         .from('properties')
-        .select('id, name, category, city, locality, monthly_rent')
+        .select('id, name, category, city, locality, monthly_rent, cover_path')
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
         .then(({ data, error: loadError }) => {
