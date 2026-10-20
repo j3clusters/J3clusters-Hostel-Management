@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/app-button';
 import { AppText } from '@/components/ui/app-text';
+import { AppTextField } from '@/components/ui/app-text-field';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -17,6 +18,7 @@ import {
   updateBookingRequest,
   type BookingStatus,
 } from '@/lib/booking-requests';
+import { depositLabel, isDepositStatus, markDepositReceived, recordDeposit, type Deposit } from '@/lib/deposits';
 import {
   currentRentMonth,
   isRentChargeStatus,
@@ -54,6 +56,9 @@ export default function BookingRequestsScreen() {
   const [beds, setBeds] = useState<{ id: string; propertyId: string; roomName: string; label: string }[]>([]);
   const [takenBedIds, setTakenBedIds] = useState<string[]>([]);
   const [charges, setCharges] = useState<RentCharge[]>([]);
+  const [deposits, setDeposits] = useState<Deposit[]>([]);
+  const [depositRequestId, setDepositRequestId] = useState<string | null>(null);
+  const [depositAmount, setDepositAmount] = useState('');
   const [loading, setLoading] = useState(Boolean(user));
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState(user ? '' : 'Sign in to see booking requests.');
@@ -187,6 +192,56 @@ export default function BookingRequestsScreen() {
     }, [user]),
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!supabase || !user) {
+        return;
+      }
+
+      let active = true;
+      void supabase
+        .from('deposits')
+        .select('id, booking_request_id, amount, status')
+        .order('created_at', { ascending: false })
+        .then(({ data, error: loadError }) => {
+          if (!active) {
+            return;
+          }
+          if (loadError) {
+            setError(loadError.message);
+            return;
+          }
+          setDeposits(
+            (data ?? []).flatMap((row) => {
+              if (typeof row.id !== 'string' || typeof row.booking_request_id !== 'string' || !isDepositStatus(row.status)) {
+                return [];
+              }
+              return [
+                {
+                  id: row.id,
+                  bookingRequestId: row.booking_request_id,
+                  amount: row.amount,
+                  status: row.status,
+                },
+              ];
+            }),
+          );
+        });
+
+      return () => {
+        active = false;
+      };
+    }, [user]),
+  );
+
+  function stayIsBusy(requestId: string) {
+    return (
+      busyId === requestId ||
+      charges.some((charge) => charge.id === busyId && charge.bookingRequestId === requestId) ||
+      deposits.some((deposit) => deposit.id === busyId && deposit.bookingRequestId === requestId)
+    );
+  }
+
   async function confirmRequest(requestId: string, bedId: string) {
     if (busyId) {
       return;
@@ -302,6 +357,44 @@ export default function BookingRequestsScreen() {
     setCharges((current) => current.map((charge) => (charge.id === chargeId ? { ...charge, status: 'received' } : charge)));
   }
 
+  async function saveDeposit(requestId: string) {
+    if (busyId) {
+      return;
+    }
+
+    setBusyId(requestId);
+    setError('');
+    const result = await recordDeposit(requestId, depositAmount);
+    setBusyId(null);
+
+    if (result.error || !result.deposit) {
+      setError(result.error || 'The deposit could not be recorded.');
+      return;
+    }
+
+    setDeposits((current) => [result.deposit as Deposit, ...current]);
+    setDepositAmount('');
+    setDepositRequestId(null);
+  }
+
+  async function markDeposit(depositId: string) {
+    if (busyId) {
+      return;
+    }
+
+    setBusyId(depositId);
+    setError('');
+    const markError = await markDepositReceived(depositId);
+    setBusyId(null);
+
+    if (markError) {
+      setError(markError);
+      return;
+    }
+
+    setDeposits((current) => current.map((deposit) => (deposit.id === depositId ? { ...deposit, status: 'received' } : deposit)));
+  }
+
   async function changeStatus(requestId: string, status: 'rejected' | 'cancelled', list: 'mine' | 'incoming') {
     if (busyId) {
       return;
@@ -337,7 +430,7 @@ export default function BookingRequestsScreen() {
         <AppText variant="eyebrow">J3cluster</AppText>
         <AppText variant="title">Booking requests</AppText>
         <AppText variant="body">
-          A request does not take payment. Check-in keeps the confirmed bed. Check-out frees it. Only the owner can mark rent received.
+          A request does not take payment. Check-in keeps the confirmed bed. Check-out frees it. Only the owner can mark rent or a deposit received.
         </AppText>
         {loading ? (
           <View style={styles.skeleton} />
@@ -355,13 +448,14 @@ export default function BookingRequestsScreen() {
                 <BookingCard
                   key={request.id}
                   request={request}
-                  busy={busyId === request.id || charges.some((charge) => charge.id === busyId && charge.bookingRequestId === request.id)}
+                  busy={stayIsBusy(request.id)}
                   onOpen={() => router.push(`/property/${request.propertyId}` as Href)}
                   onCancel={
                     request.status === 'requested' ? () => void changeStatus(request.id, 'cancelled', 'mine') : undefined
                   }
                   onCheckOut={request.status === 'checked_in' ? () => void checkOut(request.id, 'mine') : undefined}
                   rentCharges={charges.filter((charge) => charge.bookingRequestId === request.id)}
+                  deposit={deposits.find((deposit) => deposit.bookingRequestId === request.id) ?? null}
                 />
               ))
             )}
@@ -377,7 +471,7 @@ export default function BookingRequestsScreen() {
                     <BookingCard
                       key={request.id}
                       request={request}
-                      busy={busyId === request.id || charges.some((charge) => charge.id === busyId && charge.bookingRequestId === request.id)}
+                      busy={stayIsBusy(request.id)}
                       onOpen={() => router.push(`/property/${request.propertyId}` as Href)}
                       beds={
                         request.status === 'requested'
@@ -395,6 +489,20 @@ export default function BookingRequestsScreen() {
                       }
                       rentCharges={charges.filter((charge) => charge.bookingRequestId === request.id)}
                       onMarkReceived={(chargeId) => void markReceived(chargeId)}
+                      deposit={deposits.find((deposit) => deposit.bookingRequestId === request.id) ?? null}
+                      depositForm={depositRequestId === request.id}
+                      depositAmount={depositAmount}
+                      onDepositAmount={setDepositAmount}
+                      onSaveDeposit={() => void saveDeposit(request.id)}
+                      onMarkDepositReceived={(depositId) => void markDeposit(depositId)}
+                      onRecordDeposit={
+                        request.status === 'checked_in' && !deposits.some((deposit) => deposit.bookingRequestId === request.id)
+                          ? () => {
+                              setDepositRequestId(request.id);
+                              setDepositAmount('');
+                            }
+                          : undefined
+                      }
                       onRecordRent={
                         request.status === 'checked_in' &&
                         !charges.some(
@@ -474,6 +582,13 @@ function BookingCard({
   onRecordRent,
   rentCharges = [],
   onMarkReceived,
+  deposit = null,
+  depositForm = false,
+  depositAmount = '',
+  onDepositAmount,
+  onSaveDeposit,
+  onRecordDeposit,
+  onMarkDepositReceived,
   onReject,
   onCancel,
 }: {
@@ -488,6 +603,13 @@ function BookingCard({
   onRecordRent?: () => void;
   rentCharges?: RentCharge[];
   onMarkReceived?: (chargeId: string) => void;
+  deposit?: Deposit | null;
+  depositForm?: boolean;
+  depositAmount?: string;
+  onDepositAmount?: (value: string) => void;
+  onSaveDeposit?: () => void;
+  onRecordDeposit?: () => void;
+  onMarkDepositReceived?: (depositId: string) => void;
   onReject?: () => void;
   onCancel?: () => void;
 }) {
@@ -513,6 +635,24 @@ function BookingCard({
           ) : null}
         </View>
       ))}
+      {deposit ? (
+        <View style={styles.rent}>
+          <AppText variant="body">{depositLabel(deposit)}</AppText>
+          {onMarkDepositReceived && deposit.status === 'due' ? (
+            <AppButton
+              label={busy ? 'Saving...' : 'Mark deposit received'}
+              disabled={busy}
+              onPress={() => onMarkDepositReceived(deposit.id)}
+            />
+          ) : null}
+        </View>
+      ) : null}
+      {depositForm && onDepositAmount && onSaveDeposit ? (
+        <>
+          <AppTextField label="Deposit amount" value={depositAmount} onChangeText={onDepositAmount} keyboardType="number-pad" />
+          <AppButton label={busy ? 'Saving...' : 'Save deposit'} disabled={busy} onPress={onSaveDeposit} />
+        </>
+      ) : null}
       {request.status === 'confirmed' && !onCheckIn ? (
         <AppText variant="body">Waiting for the owner to check you in.</AppText>
       ) : null}
@@ -532,6 +672,9 @@ function BookingCard({
         : null}
       {onCheckIn ? <AppButton label={busy ? 'Saving...' : 'Check in'} disabled={busy} onPress={onCheckIn} /> : null}
       {onCheckOut ? <AppButton label={busy ? 'Saving...' : 'Check out'} disabled={busy} onPress={onCheckOut} /> : null}
+      {onRecordDeposit && !depositForm ? (
+        <AppButton label="Record a deposit" variant="secondary" disabled={busy} onPress={onRecordDeposit} />
+      ) : null}
       {onRecordRent ? (
         <AppButton label={busy ? 'Saving...' : "Record this month's rent"} disabled={busy} onPress={onRecordRent} />
       ) : null}
