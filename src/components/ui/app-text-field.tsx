@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
-import { Brand, Spacing } from '@/constants/theme';
+import { Brand, Radius, Spacing } from '@/constants/theme';
 
 type Props = {
   label: string;
@@ -56,12 +56,13 @@ const styles = StyleSheet.create({
   input: {
     width: '100%',
     backgroundColor: Brand.white,
-    borderColor: '#D0D5DD',
-    borderRadius: 14,
+    borderColor: Brand.border,
+    borderRadius: Radius.input,
     borderWidth: 1,
     color: Brand.text,
     fontSize: 16,
     paddingHorizontal: Spacing.three,
+    minHeight: 52,
     paddingVertical: 14,
   },
 });

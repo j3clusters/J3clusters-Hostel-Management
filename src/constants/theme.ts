@@ -27,13 +27,23 @@ export const Colors = {
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Brand = {
-  primary: '#175CD3',
+  primary: '#246BFD',
   text: '#172B4D',
   muted: '#667085',
   background: '#F7F8FC',
   white: '#FFFFFF',
+  sand: '#E8CBA8',
+  border: '#E4E7EC',
   badgeBackground: '#E8F0FE',
-  danger: '#B42318',
+  success: '#16865C',
+  warning: '#D97706',
+  danger: '#D92D20',
+} as const;
+
+export const Radius = {
+  button: 16,
+  card: 20,
+  input: 14,
 } as const;
 
 export const Fonts = Platform.select({

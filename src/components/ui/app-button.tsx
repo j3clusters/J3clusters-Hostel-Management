@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 
-import { Brand } from '@/constants/theme';
+import { Brand, Radius } from '@/constants/theme';
 
 type Props = {
   label: string;
@@ -28,9 +28,12 @@ export function AppButton({ label, onPress, variant = 'primary', disabled = fals
 const styles = StyleSheet.create({
   base: {
     width: '100%',
+    minHeight: 52,
     paddingVertical: 16,
-    borderRadius: 14,
+    paddingHorizontal: 16,
+    borderRadius: Radius.button,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   primary: {
     backgroundColor: Brand.primary,

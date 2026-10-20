@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/app-text';
-import { Spacing } from '@/constants/theme';
+import { Brand, Radius, Spacing } from '@/constants/theme';
 
 type Props = {
   title: string;
@@ -26,6 +26,11 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'flex-start',
     gap: Spacing.two,
+    backgroundColor: Brand.white,
+    borderColor: Brand.border,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    padding: Spacing.four,
   },
   title: {
     textAlign: 'left',

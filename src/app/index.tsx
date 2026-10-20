@@ -18,6 +18,7 @@ export default function WelcomeScreen() {
         <Text style={styles.logoText}>J3</Text>
       </View>
       <AppText variant="brand">J3cluster</AppText>
+      <View style={styles.rule} />
       <AppText variant="subtitle" style={styles.subtitle}>
         Hostel Management
       </AppText>
@@ -26,6 +27,9 @@ export default function WelcomeScreen() {
         <AppText variant="welcome">Welcome</AppText>
         <AppText variant="body" style={styles.tagline}>
           Find a Stay. Manage a Stay. Live Better.
+        </AppText>
+        <AppText variant="body" style={styles.tagline}>
+          PG, hostel, and hotel stays across India.
         </AppText>
       </View>
 
@@ -78,7 +82,7 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 24,
-    backgroundColor: Brand.primary,
+    backgroundColor: Brand.text,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.three,
@@ -88,8 +92,15 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: '800',
   },
+  rule: {
+    width: 48,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: Brand.sand,
+    marginTop: Spacing.three,
+  },
   subtitle: {
-    marginTop: Spacing.one,
+    marginTop: Spacing.two,
   },
   hero: {
     alignItems: 'center',
