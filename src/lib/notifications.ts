@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 
-export const notificationScreens = ['announcements', 'leave', 'maintenance'] as const;
+export const notificationScreens = ['announcements', 'leave', 'maintenance', 'booking-requests', 'visit-list'] as const;
 
 export type NotificationScreen = (typeof notificationScreens)[number];
 

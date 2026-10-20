@@ -18,11 +18,20 @@ import {
   updateBookingRequest,
   type BookingStatus,
 } from '@/lib/booking-requests';
-import { depositLabel, isDepositStatus, markDepositReceived, recordDeposit, type Deposit } from '@/lib/deposits';
+import {
+  depositLabel,
+  depositReturnedLabel,
+  isDepositStatus,
+  markDepositReceived,
+  recordDeposit,
+  returnDeposit,
+  type Deposit,
+} from '@/lib/deposits';
 import {
   currentRentMonth,
   isRentChargeStatus,
   markRentReceived,
+  invoiceLabel,
   recordRentCharge,
   rentChargeLabel,
   type RentCharge,
@@ -154,7 +163,7 @@ export default function BookingRequestsScreen() {
       let active = true;
       void supabase
         .from('rent_charges')
-        .select('id, booking_request_id, amount, period_month, status, receipt_number, received_at')
+        .select('id, booking_request_id, amount, period_month, status, invoice_number, receipt_number, received_at')
         .order('period_month', { ascending: false })
         .then(({ data, error: loadError }) => {
           if (!active) {
@@ -181,6 +190,7 @@ export default function BookingRequestsScreen() {
                   amount: row.amount,
                   periodMonth: row.period_month,
                   status: row.status,
+                  invoiceNumber: typeof row.invoice_number === 'string' ? row.invoice_number : null,
                   receiptNumber: typeof row.receipt_number === 'string' ? row.receipt_number : null,
                   receivedAt: typeof row.received_at === 'string' ? row.received_at : null,
                 },
@@ -204,7 +214,7 @@ export default function BookingRequestsScreen() {
       let active = true;
       void supabase
         .from('deposits')
-        .select('id, booking_request_id, amount, status, receipt_number, received_at')
+        .select('id, booking_request_id, amount, status, receipt_number, received_at, returned_at')
         .order('created_at', { ascending: false })
         .then(({ data, error: loadError }) => {
           if (!active) {
@@ -227,6 +237,7 @@ export default function BookingRequestsScreen() {
                   status: row.status,
                   receiptNumber: typeof row.receipt_number === 'string' ? row.receipt_number : null,
                   receivedAt: typeof row.received_at === 'string' ? row.received_at : null,
+                  returnedAt: typeof row.returned_at === 'string' ? row.returned_at : null,
                 },
               ];
             }),
@@ -412,6 +423,28 @@ export default function BookingRequestsScreen() {
     );
   }
 
+  async function returnStayDeposit(depositId: string) {
+    if (busyId) {
+      return;
+    }
+
+    setBusyId(depositId);
+    setError('');
+    const result = await returnDeposit(depositId);
+    setBusyId(null);
+
+    if (result.error || !result.returnedAt) {
+      setError(result.error || 'The deposit could not be returned.');
+      return;
+    }
+
+    setDeposits((current) =>
+      current.map((deposit) =>
+        deposit.id === depositId ? { ...deposit, status: 'returned', returnedAt: result.returnedAt } : deposit,
+      ),
+    );
+  }
+
   async function changeStatus(requestId: string, status: 'rejected' | 'cancelled', list: 'mine' | 'incoming') {
     if (busyId) {
       return;
@@ -447,7 +480,7 @@ export default function BookingRequestsScreen() {
         <AppText variant="eyebrow">J3cluster</AppText>
         <AppText variant="title">Booking requests</AppText>
         <AppText variant="body">
-          A request does not take payment. Check-in keeps the confirmed bed. Check-out frees it. Marking rent or a deposit received writes a receipt.
+          A request does not take payment. Recording rent writes an invoice. Marking it received writes a receipt.
         </AppText>
         {loading ? (
           <View style={styles.skeleton} />
@@ -512,6 +545,11 @@ export default function BookingRequestsScreen() {
                       onDepositAmount={setDepositAmount}
                       onSaveDeposit={() => void saveDeposit(request.id)}
                       onMarkDepositReceived={(depositId) => void markDeposit(depositId)}
+                      onReturnDeposit={
+                        request.status === 'checked_out'
+                          ? (depositId) => void returnStayDeposit(depositId)
+                          : undefined
+                      }
                       onRecordDeposit={
                         request.status === 'checked_in' && !deposits.some((deposit) => deposit.bookingRequestId === request.id)
                           ? () => {
@@ -606,6 +644,7 @@ function BookingCard({
   onSaveDeposit,
   onRecordDeposit,
   onMarkDepositReceived,
+  onReturnDeposit,
   onReject,
   onCancel,
 }: {
@@ -627,6 +666,7 @@ function BookingCard({
   onSaveDeposit?: () => void;
   onRecordDeposit?: () => void;
   onMarkDepositReceived?: (depositId: string) => void;
+  onReturnDeposit?: (depositId: string) => void;
   onReject?: () => void;
   onCancel?: () => void;
 }) {
@@ -643,6 +683,7 @@ function BookingCard({
       {rentCharges.map((charge) => (
         <View key={charge.id} style={styles.rent}>
           <AppText variant="body">{rentChargeLabel(charge)}</AppText>
+          {charge.invoiceNumber ? <AppText variant="body">{invoiceLabel(charge.invoiceNumber)}</AppText> : null}
           {charge.receiptNumber && charge.receivedAt ? (
             <AppText variant="body">{receiptLabel(charge.receiptNumber, charge.receivedAt)}</AppText>
           ) : null}
@@ -661,11 +702,21 @@ function BookingCard({
           {deposit.receiptNumber && deposit.receivedAt ? (
             <AppText variant="body">{receiptLabel(deposit.receiptNumber, deposit.receivedAt)}</AppText>
           ) : null}
+          {deposit.status === 'returned' && deposit.returnedAt ? (
+            <AppText variant="body">{depositReturnedLabel(deposit.returnedAt)}</AppText>
+          ) : null}
           {onMarkDepositReceived && deposit.status === 'due' ? (
             <AppButton
               label={busy ? 'Saving...' : 'Mark deposit received'}
               disabled={busy}
               onPress={() => onMarkDepositReceived(deposit.id)}
+            />
+          ) : null}
+          {onReturnDeposit && deposit.status === 'received' ? (
+            <AppButton
+              label={busy ? 'Saving...' : 'Return deposit'}
+              disabled={busy}
+              onPress={() => onReturnDeposit(deposit.id)}
             />
           ) : null}
         </View>

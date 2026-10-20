@@ -85,6 +85,7 @@ export default function WelcomeScreen() {
             <AppButton label="Visit list" variant="secondary" onPress={() => router.push('/visit-list')} />
             <AppButton label="Enquiries" variant="secondary" onPress={() => router.push('/enquiries')} />
             <AppButton label="Booking requests" variant="secondary" onPress={() => router.push('/booking-requests')} />
+            {role === 'resident' ? <AppButton label="My stay" onPress={() => router.push('/resident-report')} /> : null}
             {role === 'owner' || role === 'resident' ? (
               <AppButton
                 label={unreadCount > 0 ? `Notifications (${unreadCount})` : 'Notifications'}

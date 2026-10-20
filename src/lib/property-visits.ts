@@ -67,3 +67,24 @@ export async function updateVisit(visitId: string, status: 'confirmed' | 'comple
 
   return '';
 }
+
+export async function rescheduleVisit(visitId: string, visitOn: string) {
+  if (!supabase) {
+    return { error: 'Supabase is not connected.', visitOn: null as string | null };
+  }
+
+  const { data, error } = await supabase.rpc('reschedule_visit', {
+    target_visit: visitId,
+    next_date: visitOn,
+  });
+  if (error) {
+    return { error: error.message, visitOn: null as string | null };
+  }
+
+  const row = Array.isArray(data) ? data[0] : null;
+  if (!row || typeof row.visit_on !== 'string') {
+    return { error: 'The visit could not be rescheduled.', visitOn: null as string | null };
+  }
+
+  return { error: '', visitOn: row.visit_on };
+}

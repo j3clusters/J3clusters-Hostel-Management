@@ -8,6 +8,7 @@ export type RentCharge = {
   amount: number | string;
   periodMonth: string;
   status: RentChargeStatus;
+  invoiceNumber: string | null;
   receiptNumber: string | null;
   receivedAt: string | null;
 };
@@ -36,6 +37,10 @@ export function rentChargeLabel(charge: Pick<RentCharge, 'amount' | 'periodMonth
   return `${month} · ${rent} ${charge.status === 'received' ? 'received' : 'due'}`;
 }
 
+export function invoiceLabel(invoiceNumber: string) {
+  return `Invoice ${invoiceNumber}`;
+}
+
 export async function recordRentCharge(requestId: string): Promise<{ error: string; charge: RentCharge | null }> {
   if (!supabase) {
     return { error: 'Supabase is not connected.', charge: null };
@@ -47,7 +52,7 @@ export async function recordRentCharge(requestId: string): Promise<{ error: stri
   }
 
   const row = Array.isArray(data) ? data[0] : null;
-  if (!row || typeof row.charge_id !== 'string' || typeof row.charge_month !== 'string') {
+  if (!row || typeof row.charge_id !== 'string' || typeof row.charge_month !== 'string' || typeof row.invoice_number !== 'string') {
     return { error: 'Rent could not be recorded.', charge: null };
   }
 
@@ -59,6 +64,7 @@ export async function recordRentCharge(requestId: string): Promise<{ error: stri
       amount: row.charge_amount,
       periodMonth: row.charge_month,
       status: 'due',
+      invoiceNumber: row.invoice_number,
       receiptNumber: null,
       receivedAt: null,
     },

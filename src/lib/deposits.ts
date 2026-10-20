@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 
-export type DepositStatus = 'due' | 'received';
+export type DepositStatus = 'due' | 'received' | 'returned';
 
 export type Deposit = {
   id: string;
@@ -9,16 +9,32 @@ export type Deposit = {
   status: DepositStatus;
   receiptNumber: string | null;
   receivedAt: string | null;
+  returnedAt: string | null;
 };
 
 export function isDepositStatus(value: string): value is DepositStatus {
-  return value === 'due' || value === 'received';
+  return value === 'due' || value === 'received' || value === 'returned';
 }
 
 export function depositLabel(deposit: Pick<Deposit, 'amount' | 'status'>) {
   const amount = Number(deposit.amount);
   const rent = Number.isFinite(amount) ? `₹${amount.toLocaleString('en-IN')}` : 'Deposit unavailable';
-  return `Deposit · ${rent} ${deposit.status === 'received' ? 'received' : 'due'}`;
+  const word = deposit.status === 'returned' ? 'returned' : deposit.status === 'received' ? 'received' : 'due';
+  return `Deposit · ${rent} ${word}`;
+}
+
+export function depositReturnedLabel(returnedAt: string) {
+  const date = new Date(returnedAt);
+  if (Number.isNaN(date.getTime())) {
+    return 'Returned';
+  }
+  const when = date.toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+  return `Returned · ${when}`;
 }
 
 export async function recordDeposit(requestId: string, amountText: string): Promise<{ error: string; deposit: Deposit | null }> {
@@ -53,6 +69,7 @@ export async function recordDeposit(requestId: string, amountText: string): Prom
       status: 'due',
       receiptNumber: null,
       receivedAt: null,
+      returnedAt: null,
     },
   };
 }
@@ -75,4 +92,22 @@ export async function markDepositReceived(
   }
 
   return { error: '', receiptNumber: row.receipt_number, receivedAt: row.received_at };
+}
+
+export async function returnDeposit(depositId: string): Promise<{ error: string; returnedAt: string | null }> {
+  if (!supabase) {
+    return { error: 'Supabase is not connected.', returnedAt: null };
+  }
+
+  const { data, error } = await supabase.rpc('return_deposit', { target_deposit: depositId });
+  if (error) {
+    return { error: error.message, returnedAt: null };
+  }
+
+  const row = Array.isArray(data) ? data[0] : null;
+  if (!row || typeof row.returned_at !== 'string') {
+    return { error: 'The deposit could not be returned.', returnedAt: null };
+  }
+
+  return { error: '', returnedAt: row.returned_at };
 }

@@ -1,6 +1,6 @@
 import { type Href, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/app-button';
 import { AppText } from '@/components/ui/app-text';
@@ -8,7 +8,8 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Brand, Radius, Spacing } from '@/constants/theme';
-import { isVisitStatus, updateVisit, visitStatusLabel, type VisitStatus } from '@/lib/property-visits';
+import { kolkataToday, leaveDateChoices, leaveDateLabel } from '@/lib/leave-requests';
+import { isVisitStatus, rescheduleVisit, updateVisit, visitStatusLabel, type VisitStatus } from '@/lib/property-visits';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -16,10 +17,15 @@ type VisitItem = {
   id: string;
   status: VisitStatus;
   propertyId: string;
+  visitOn: string | null;
   name: string;
   locality: string;
   city: string;
 };
+
+function canMoveVisit(status: VisitStatus) {
+  return status === 'requested' || status === 'confirmed' || status === 'rescheduled';
+}
 
 type PropertyEmbed = {
   id: string;
@@ -35,6 +41,8 @@ export default function VisitListScreen() {
   const [incoming, setIncoming] = useState<VisitItem[]>([]);
   const [loading, setLoading] = useState(Boolean(user));
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [rescheduleId, setRescheduleId] = useState<string | null>(null);
+  const [nextDate, setNextDate] = useState(kolkataToday);
   const [error, setError] = useState(user ? '' : 'Sign in to see visit requests.');
 
   useFocusEffect(
@@ -48,13 +56,13 @@ export default function VisitListScreen() {
       void Promise.all([
         supabase
           .from('property_visits')
-          .select('id, status, property_id, properties(id, name, locality, city)')
+          .select('id, status, property_id, visit_on, properties(id, name, locality, city)')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false }),
         role === 'owner'
           ? supabase
               .from('property_visits')
-              .select('id, status, user_id, property_id, properties!inner(id, name, locality, city, owner_id)')
+              .select('id, status, user_id, property_id, visit_on, properties!inner(id, name, locality, city, owner_id)')
               .eq('properties.owner_id', user.id)
               .order('created_at', { ascending: false })
           : Promise.resolve({ data: [], error: null }),
@@ -109,12 +117,39 @@ export default function VisitListScreen() {
     }
   }
 
+  async function moveVisit(visitId: string, list: 'mine' | 'incoming') {
+    if (busyId) {
+      return;
+    }
+
+    setBusyId(visitId);
+    setError('');
+    const result = await rescheduleVisit(visitId, nextDate);
+    setBusyId(null);
+
+    if (result.error || !result.visitOn) {
+      setError(result.error || 'The visit could not be rescheduled.');
+      return;
+    }
+
+    const apply = (current: VisitItem[]) =>
+      current.map((item) => (item.id === visitId ? { ...item, status: 'rescheduled' as const, visitOn: result.visitOn } : item));
+    if (list === 'mine') {
+      setMine(apply);
+    } else {
+      setIncoming(apply);
+    }
+    setRescheduleId(null);
+  }
+
+  const dateChoices = leaveDateChoices(kolkataToday(), 14);
+
   return (
     <Screen edges={['left', 'right', 'bottom']}>
       <View style={styles.content}>
         <AppText variant="eyebrow">J3cluster</AppText>
         <AppText variant="title">Visit list</AppText>
-        <AppText variant="body">A visit request is not a booking or a saved stay.</AppText>
+        <AppText variant="body">A visit request is not a booking or a saved stay. A new date does not take payment.</AppText>
         {loading ? (
           <View style={styles.skeleton} />
         ) : error ? (
@@ -134,8 +169,23 @@ export default function VisitListScreen() {
                   busy={busyId === visit.id}
                   onOpen={() => router.push(`/property/${visit.propertyId}` as Href)}
                   onCancel={
-                    visit.status === 'requested' ? () => void changeStatus(visit.id, 'cancelled', 'mine') : undefined
+                    visit.status === 'requested' || visit.status === 'rescheduled'
+                      ? () => void changeStatus(visit.id, 'cancelled', 'mine')
+                      : undefined
                   }
+                  rescheduleOpen={rescheduleId === visit.id}
+                  dateChoices={dateChoices}
+                  nextDate={nextDate}
+                  onPickDate={setNextDate}
+                  onStartReschedule={
+                    canMoveVisit(visit.status)
+                      ? () => {
+                          setRescheduleId(visit.id);
+                          setNextDate(visit.visitOn && visit.visitOn >= kolkataToday() ? visit.visitOn : kolkataToday());
+                        }
+                      : undefined
+                  }
+                  onSaveReschedule={() => void moveVisit(visit.id, 'mine')}
                 />
               ))
             )}
@@ -154,7 +204,7 @@ export default function VisitListScreen() {
                       busy={busyId === visit.id}
                       onOpen={() => router.push(`/property/${visit.propertyId}` as Href)}
                       onConfirm={
-                        visit.status === 'requested'
+                        visit.status === 'requested' || visit.status === 'rescheduled'
                           ? () => void changeStatus(visit.id, 'confirmed', 'incoming')
                           : undefined
                       }
@@ -164,10 +214,23 @@ export default function VisitListScreen() {
                           : undefined
                       }
                       onCancel={
-                        visit.status === 'requested' || visit.status === 'confirmed'
+                        visit.status === 'requested' || visit.status === 'confirmed' || visit.status === 'rescheduled'
                           ? () => void changeStatus(visit.id, 'cancelled', 'incoming')
                           : undefined
                       }
+                      rescheduleOpen={rescheduleId === visit.id}
+                      dateChoices={dateChoices}
+                      nextDate={nextDate}
+                      onPickDate={setNextDate}
+                      onStartReschedule={
+                        canMoveVisit(visit.status)
+                          ? () => {
+                              setRescheduleId(visit.id);
+                              setNextDate(visit.visitOn && visit.visitOn >= kolkataToday() ? visit.visitOn : kolkataToday());
+                            }
+                          : undefined
+                      }
+                      onSaveReschedule={() => void moveVisit(visit.id, 'incoming')}
                     />
                   ))
                 )}
@@ -185,6 +248,7 @@ function toVisitItems(
     id: string;
     status: string;
     property_id: string;
+    visit_on?: string | null;
     properties: PropertyEmbed | PropertyEmbed[] | null;
   }[],
 ) {
@@ -198,6 +262,7 @@ function toVisitItems(
         id: row.id,
         status: row.status,
         propertyId: row.property_id,
+        visitOn: typeof row.visit_on === 'string' ? row.visit_on : null,
         name: property.name,
         locality: property.locality,
         city: property.city,
@@ -213,6 +278,12 @@ function VisitCard({
   onConfirm,
   onComplete,
   onCancel,
+  rescheduleOpen = false,
+  dateChoices = [],
+  nextDate = '',
+  onPickDate,
+  onStartReschedule,
+  onSaveReschedule,
 }: {
   visit: VisitItem;
   busy: boolean;
@@ -220,6 +291,12 @@ function VisitCard({
   onConfirm?: () => void;
   onComplete?: () => void;
   onCancel?: () => void;
+  rescheduleOpen?: boolean;
+  dateChoices?: { value: string; label: string }[];
+  nextDate?: string;
+  onPickDate?: (value: string) => void;
+  onStartReschedule?: () => void;
+  onSaveReschedule?: () => void;
 }) {
   return (
     <View style={styles.card}>
@@ -230,10 +307,33 @@ function VisitCard({
       <AppText variant="body">
         {visit.locality}, {visit.city}
       </AppText>
+      {visit.visitOn ? <AppText variant="body">{leaveDateLabel(visit.visitOn)}</AppText> : null}
       <AppButton label="View stay" variant="secondary" onPress={onOpen} />
       {onConfirm ? <AppButton label={busy ? 'Saving...' : 'Confirm visit'} disabled={busy} onPress={onConfirm} /> : null}
       {onComplete ? (
         <AppButton label={busy ? 'Saving...' : 'Mark completed'} disabled={busy} onPress={onComplete} />
+      ) : null}
+      {onStartReschedule && !rescheduleOpen ? (
+        <AppButton label="Choose a new date" variant="secondary" disabled={busy} onPress={onStartReschedule} />
+      ) : null}
+      {rescheduleOpen && onPickDate && onSaveReschedule ? (
+        <>
+          <View style={styles.choices}>
+            {dateChoices.map((item) => (
+              <Pressable
+                key={item.value}
+                accessibilityRole="button"
+                accessibilityState={{ selected: nextDate === item.value }}
+                onPress={() => onPickDate(item.value)}
+                style={[styles.choice, nextDate === item.value && styles.choiceSelected]}>
+                <AppText variant="body" style={nextDate === item.value ? styles.choiceSelectedLabel : styles.choiceLabel}>
+                  {item.label}
+                </AppText>
+              </Pressable>
+            ))}
+          </View>
+          <AppButton label={busy ? 'Saving...' : 'Save new date'} disabled={busy} onPress={onSaveReschedule} />
+        </>
       ) : null}
       {onCancel ? <AppButton label="Cancel request" variant="secondary" disabled={busy} onPress={onCancel} /> : null}
     </View>
@@ -262,6 +362,33 @@ const styles = StyleSheet.create({
   name: {
     color: Brand.text,
     fontWeight: '800',
+  },
+  choices: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  choice: {
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radius.button,
+    borderWidth: 1,
+    borderColor: Brand.border,
+    backgroundColor: Brand.white,
+  },
+  choiceSelected: {
+    backgroundColor: Brand.primary,
+    borderColor: Brand.primary,
+  },
+  choiceLabel: {
+    color: Brand.text,
+    fontWeight: '700',
+  },
+  choiceSelectedLabel: {
+    color: Brand.white,
+    fontWeight: '700',
   },
   skeleton: {
     width: '100%',
