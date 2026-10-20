@@ -4,17 +4,19 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/app-button';
 import { AppText } from '@/components/ui/app-text';
+import { AppTextField } from '@/components/ui/app-text-field';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Brand, Radius, Spacing } from '@/constants/theme';
-import { closeEnquiry } from '@/lib/enquiries';
+import { closeEnquiry, replyToEnquiry } from '@/lib/enquiries';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 
 type EnquiryItem = {
   id: string;
   message: string;
+  ownerReply: string | null;
   status: 'open' | 'closed';
   propertyId: string;
   name: string;
@@ -36,6 +38,8 @@ export default function EnquiriesScreen() {
   const [incoming, setIncoming] = useState<EnquiryItem[]>([]);
   const [loading, setLoading] = useState(Boolean(user));
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyAction, setBusyAction] = useState<'close' | 'reply' | null>(null);
+  const [replyById, setReplyById] = useState<Record<string, string>>({});
   const [error, setError] = useState(user ? '' : 'Sign in to see enquiries.');
 
   useFocusEffect(
@@ -48,13 +52,13 @@ export default function EnquiriesScreen() {
       void Promise.all([
         supabase
           .from('enquiries')
-          .select('id, message, status, property_id, properties(id, name, locality, city)')
+          .select('id, message, owner_reply, status, property_id, properties(id, name, locality, city)')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false }),
         role === 'owner'
           ? supabase
               .from('enquiries')
-              .select('id, message, status, user_id, property_id, properties!inner(id, name, locality, city, owner_id)')
+              .select('id, message, owner_reply, status, user_id, property_id, properties!inner(id, name, locality, city, owner_id)')
               .eq('properties.owner_id', user.id)
               .order('created_at', { ascending: false })
           : Promise.resolve({ data: [], error: null }),
@@ -86,9 +90,11 @@ export default function EnquiriesScreen() {
     }
 
     setBusyId(enquiryId);
+    setBusyAction('close');
     setError('');
     const closeError = await closeEnquiry(enquiryId);
     setBusyId(null);
+    setBusyAction(null);
 
     if (closeError) {
       setError(closeError);
@@ -104,12 +110,33 @@ export default function EnquiriesScreen() {
     }
   }
 
+  async function saveReply(enquiryId: string) {
+    if (busyId) {
+      return;
+    }
+
+    setBusyId(enquiryId);
+    setBusyAction('reply');
+    setError('');
+    const replyError = await replyToEnquiry(enquiryId, replyById[enquiryId] ?? '');
+    setBusyId(null);
+    setBusyAction(null);
+
+    if (replyError) {
+      setError(replyError);
+      return;
+    }
+
+    const reply = (replyById[enquiryId] ?? '').trim();
+    setIncoming((current) => current.map((item) => (item.id === enquiryId ? { ...item, ownerReply: reply } : item)));
+  }
+
   return (
     <Screen edges={['left', 'right', 'bottom']}>
       <View style={styles.content}>
         <AppText variant="eyebrow">J3cluster</AppText>
         <AppText variant="title">Enquiries</AppText>
-        <AppText variant="body">An enquiry is not a booking, a visit, or a saved stay.</AppText>
+        <AppText variant="body">An enquiry is not a booking, a visit, or a saved stay. The owner can reply once while it is open.</AppText>
         {loading ? (
           <View style={styles.skeleton} />
         ) : error ? (
@@ -127,6 +154,7 @@ export default function EnquiriesScreen() {
                   key={enquiry.id}
                   enquiry={enquiry}
                   busy={busyId === enquiry.id}
+                  closing={busyId === enquiry.id && busyAction === 'close'}
                   onOpen={() => router.push(`/property/${enquiry.propertyId}` as Href)}
                   onClose={enquiry.status === 'open' ? () => void close(enquiry.id, 'mine') : undefined}
                 />
@@ -145,8 +173,18 @@ export default function EnquiriesScreen() {
                       key={enquiry.id}
                       enquiry={enquiry}
                       busy={busyId === enquiry.id}
+                      closing={busyId === enquiry.id && busyAction === 'close'}
                       onOpen={() => router.push(`/property/${enquiry.propertyId}` as Href)}
                       onClose={enquiry.status === 'open' ? () => void close(enquiry.id, 'incoming') : undefined}
+                      reply={replyById[enquiry.id] ?? ''}
+                      onReplyChange={
+                        enquiry.status === 'open' && !enquiry.ownerReply
+                          ? (value) => setReplyById((current) => ({ ...current, [enquiry.id]: value }))
+                          : undefined
+                      }
+                      onSaveReply={
+                        enquiry.status === 'open' && !enquiry.ownerReply ? () => void saveReply(enquiry.id) : undefined
+                      }
                     />
                   ))
                 )}
@@ -163,6 +201,7 @@ function toEnquiryItems(
   rows: {
     id: string;
     message: string;
+    owner_reply?: string | null;
     status: string;
     property_id: string;
     properties: PropertyEmbed | PropertyEmbed[] | null;
@@ -177,6 +216,7 @@ function toEnquiryItems(
       {
         id: row.id,
         message: row.message,
+        ownerReply: typeof row.owner_reply === 'string' ? row.owner_reply : null,
         status: row.status,
         propertyId: row.property_id,
         name: property.name,
@@ -190,13 +230,21 @@ function toEnquiryItems(
 function EnquiryCard({
   enquiry,
   busy,
+  closing,
   onOpen,
   onClose,
+  reply,
+  onReplyChange,
+  onSaveReply,
 }: {
   enquiry: EnquiryItem;
   busy: boolean;
+  closing?: boolean;
   onOpen: () => void;
   onClose?: () => void;
+  reply?: string;
+  onReplyChange?: (value: string) => void;
+  onSaveReply?: () => void;
 }) {
   return (
     <View style={styles.card}>
@@ -208,8 +256,22 @@ function EnquiryCard({
         {enquiry.locality}, {enquiry.city}
       </AppText>
       <AppText variant="body">{enquiry.message}</AppText>
+      {enquiry.ownerReply ? (
+        <>
+          <AppText variant="body" style={styles.name}>
+            Owner reply
+          </AppText>
+          <AppText variant="body">{enquiry.ownerReply}</AppText>
+        </>
+      ) : null}
+      {onSaveReply && onReplyChange ? (
+        <>
+          <AppTextField label="Reply" value={reply ?? ''} onChangeText={onReplyChange} autoCapitalize="sentences" multiline />
+          <AppButton label={busy && !closing ? 'Saving...' : 'Save reply'} disabled={busy} onPress={onSaveReply} />
+        </>
+      ) : null}
       <AppButton label="View stay" variant="secondary" onPress={onOpen} />
-      {onClose ? <AppButton label={busy ? 'Closing...' : 'Close enquiry'} disabled={busy} onPress={onClose} /> : null}
+      {onClose ? <AppButton label={closing ? 'Closing...' : 'Close enquiry'} disabled={busy} onPress={onClose} /> : null}
     </View>
   );
 }

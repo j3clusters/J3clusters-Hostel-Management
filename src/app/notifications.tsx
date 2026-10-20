@@ -92,7 +92,7 @@ export default function NotificationsScreen() {
         <AppText variant="eyebrow">J3cluster</AppText>
         <AppText variant="title">Notifications</AppText>
         <AppText variant="body">
-          Booking updates, visits, enquiries, property reviews, owner requests, leave, maintenance, and notices show up here. This does not alert your phone.
+          Booking updates, visits, enquiries, property reviews, owner requests, stay reviews, leave, maintenance, and notices show up here. This does not alert your phone.
         </AppText>
         {!canUse ? (
           <AppText variant="body">{error}</AppText>
@@ -103,7 +103,7 @@ export default function NotificationsScreen() {
         ) : items.length === 0 ? (
           <EmptyState
             title="No notifications"
-            message="A booking update, property review, owner request, enquiry, notice, leave request, or maintenance update will appear here."
+            message="A booking update, property review, property withdrawal, owner request, stay review, review reply, enquiry, enquiry reply, notice, leave request, or maintenance update will appear here."
           />
         ) : (
           <>

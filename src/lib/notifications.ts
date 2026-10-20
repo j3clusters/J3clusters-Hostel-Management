@@ -11,6 +11,7 @@ export const notificationScreens = [
   'my-properties',
   'admin-owners',
   'owner-profile',
+  'stay-reviews',
 ] as const;
 
 export type NotificationScreen = (typeof notificationScreens)[number];

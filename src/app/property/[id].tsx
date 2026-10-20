@@ -1,6 +1,6 @@
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Pressable, View } from 'react-native';
 
 import { PropertyCover } from '@/components/property-cover';
 import { SaveStayButton } from '@/components/save-stay-button';
@@ -13,16 +13,28 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { categoryLabel, formatMonthlyRent, isPropertyCategory } from '@/constants/property';
 import { isSharingType, sharingLabel } from '@/constants/rooms';
 import { Brand, Radius, Spacing } from '@/constants/theme';
-import { isBookingStatus, requestBooking, bookingStatusLabel, type BookingStatus } from '@/lib/booking-requests';
+import {
+  clearPendingMoveIn,
+  isBookingStatus,
+  peekPendingMoveIn,
+  peekPendingMoveInPart,
+  requestBooking,
+  setPendingMoveIn,
+  setPendingMoveInPart,
+  bookingStatusLabel,
+  type BookingStatus,
+} from '@/lib/booking-requests';
 import {
   clearPendingEnquiryMessage,
   peekPendingEnquiryMessage,
   sendEnquiry,
   setPendingEnquiryMessage,
 } from '@/lib/enquiries';
-import { isVisitStatus, requestVisit, visitStatusLabel, type VisitStatus } from '@/lib/property-visits';
+import { isVisitStatus, clearPendingVisitOn, isVisitPart, peekPendingVisitOn, peekPendingVisitPart, requestVisit, setPendingVisitOn, setPendingVisitPart, visitParts, visitPartLabel, visitStatusLabel, type VisitPart, type VisitStatus } from '@/lib/property-visits';
+import { kolkataToday, leaveDateChoices, leaveDateLabel } from '@/lib/leave-requests';
 import { removeSavedStay, saveApprovedStay } from '@/lib/saved-stays';
 import { type StayAction } from '@/lib/stay-action';
+import { loadPropertyReviews, loadReviewSummaries, ratingLabel, reviewSummaryLabel, stayReviewDateLabel, type PublicStayReview } from '@/lib/stay-reviews';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -33,6 +45,7 @@ type PropertyDetails = {
   locality: string;
   address: string | null;
   description: string | null;
+  house_rules: string | null;
   monthly_rent: number | string;
   cover_path: string | null;
 };
@@ -53,9 +66,15 @@ export default function PropertyDetailsScreen() {
   const [saving, setSaving] = useState(false);
   const [visitStatus, setVisitStatus] = useState<VisitStatus | null>(null);
   const [requestingVisit, setRequestingVisit] = useState(false);
+  const [visitOn, setVisitOn] = useState(kolkataToday);
+  const [visitPart, setVisitPart] = useState<VisitPart>('morning');
   const [bookingStatus, setBookingStatus] = useState<BookingStatus | null>(null);
   const [bedSummary, setBedSummary] = useState<{ roomName: string; sharing: string; total: number; available: number }[]>([]);
   const [requestingBooking, setRequestingBooking] = useState(false);
+  const [moveIn, setMoveIn] = useState(kolkataToday);
+  const [moveInPart, setMoveInPart] = useState<VisitPart>('morning');
+  const [reviews, setReviews] = useState<PublicStayReview[]>([]);
+  const [reviewLabel, setReviewLabel] = useState('');
   const [enquiryOpen, setEnquiryOpen] = useState(false);
   const [enquiryMessage, setEnquiryMessage] = useState('');
   const [sendingEnquiry, setSendingEnquiry] = useState(false);
@@ -72,7 +91,7 @@ export default function PropertyDetailsScreen() {
 
     void supabase
       .from('properties')
-      .select('name, category, city, locality, address, description, monthly_rent, cover_path')
+      .select('name, category, city, locality, address, description, house_rules, monthly_rent, cover_path')
       .eq('id', propertyId)
       .eq('status', 'approved')
       .maybeSingle()
@@ -85,10 +104,41 @@ export default function PropertyDetailsScreen() {
         } else if (!data || !isPropertyCategory(data.category)) {
           setError('This stay is not available.');
         } else {
-          setProperty(data);
+          setProperty({
+            ...data,
+            house_rules: typeof data.house_rules === 'string' ? data.house_rules : null,
+          });
         }
         setLoading(false);
       });
+
+    return () => {
+      active = false;
+    };
+  }, [propertyId]);
+
+  useEffect(() => {
+    if (!propertyId) {
+      return;
+    }
+
+    let active = true;
+    void Promise.all([loadPropertyReviews(propertyId), loadReviewSummaries()]).then(([reviewResult, summaryResult]) => {
+      if (!active) {
+        return;
+      }
+      if (reviewResult.error) {
+        setError(reviewResult.error);
+        return;
+      }
+      setReviews(reviewResult.reviews);
+      if (summaryResult.error) {
+        setError(summaryResult.error);
+        return;
+      }
+      const summary = summaryResult.summaries[propertyId];
+      setReviewLabel(summary ? reviewSummaryLabel(summary.averageRating, summary.reviewCount) : '');
+    });
 
     return () => {
       active = false;
@@ -247,13 +297,35 @@ export default function PropertyDetailsScreen() {
       return;
     }
 
+    const moveInToSend = action === 'booking' ? peekPendingMoveIn() : '';
+    const moveInPartToSend = action === 'booking' ? peekPendingMoveInPart() : '';
+    if (action === 'booking' && (!moveInToSend || !isVisitPart(moveInPartToSend))) {
+      completedAction.current = '';
+      router.setParams({ action: '' });
+      void Promise.resolve().then(() => {
+        setError('Choose a move-in date again.');
+      });
+      return;
+    }
+
+    const visitOnToSend = action === 'visit' ? peekPendingVisitOn() : '';
+    const visitPartToSend = action === 'visit' ? peekPendingVisitPart() : '';
+    if (action === 'visit' && (!visitOnToSend || !isVisitPart(visitPartToSend))) {
+      completedAction.current = '';
+      router.setParams({ action: '' });
+      void Promise.resolve().then(() => {
+        setError('Choose a visit date again.');
+      });
+      return;
+    }
+
     const pending =
       action === 'save'
         ? saveApprovedStay(user.id, propertyId)
         : action === 'visit'
-          ? requestVisit(user.id, propertyId)
+          ? requestVisit(user.id, propertyId, visitOnToSend, visitPartToSend)
           : action === 'booking'
-            ? requestBooking(user.id, propertyId)
+            ? requestBooking(user.id, propertyId, moveInToSend, moveInPartToSend)
             : sendEnquiry(user.id, propertyId, enquiryMessageToSend);
     void pending.then((actionError) => {
       const alreadySent =
@@ -262,14 +334,28 @@ export default function PropertyDetailsScreen() {
       if (actionError && !alreadySent) {
         completedAction.current = '';
         setEnquiryMessage(enquiryMessageToSend);
+        if (moveInToSend) {
+          setMoveIn(moveInToSend);
+        }
+        if (isVisitPart(moveInPartToSend)) {
+          setMoveInPart(moveInPartToSend);
+        }
+        if (visitOnToSend) {
+          setVisitOn(visitOnToSend);
+        }
+        if (isVisitPart(visitPartToSend)) {
+          setVisitPart(visitPartToSend);
+        }
         setError(actionError);
         return;
       }
       if (action === 'save') {
         setSaved(true);
       } else if (action === 'visit') {
+        clearPendingVisitOn();
         setVisitStatus('requested');
       } else if (action === 'booking') {
+        clearPendingMoveIn();
         setBookingStatus('requested');
       } else {
         clearPendingEnquiryMessage();
@@ -306,17 +392,23 @@ export default function PropertyDetailsScreen() {
     if (!propertyId) {
       return;
     }
-    if (!user) {
-      setPromptAction('visit');
+    if (visitStatus) {
       return;
     }
-    if (visitStatus) {
+    if (!leaveDateChoices(kolkataToday(), 14).some((item) => item.value === visitOn) || !isVisitPart(visitPart)) {
+      setError('Choose a visit date.');
+      return;
+    }
+    if (!user) {
+      setPendingVisitOn(visitOn);
+      setPendingVisitPart(visitPart);
+      setPromptAction('visit');
       return;
     }
 
     setRequestingVisit(true);
     setError('');
-    const visitError = await requestVisit(user.id, propertyId);
+    const visitError = await requestVisit(user.id, propertyId, visitOn, visitPart);
     setRequestingVisit(false);
 
     if (visitError) {
@@ -331,14 +423,20 @@ export default function PropertyDetailsScreen() {
     if (!propertyId || bookingStatus) {
       return;
     }
+    if (!leaveDateChoices(kolkataToday(), 14).some((item) => item.value === moveIn) || !isVisitPart(moveInPart)) {
+      setError('Choose a move-in date.');
+      return;
+    }
     if (!user) {
+      setPendingMoveIn(moveIn);
+      setPendingMoveInPart(moveInPart);
       setPromptAction('booking');
       return;
     }
 
     setRequestingBooking(true);
     setError('');
-    const bookingError = await requestBooking(user.id, propertyId);
+    const bookingError = await requestBooking(user.id, propertyId, moveIn, moveInPart);
     setRequestingBooking(false);
 
     if (bookingError && bookingError !== 'You already have a booking request for this stay.') {
@@ -413,14 +511,81 @@ export default function PropertyDetailsScreen() {
             )}
             {property.address ? <AppText variant="body">{property.address}</AppText> : null}
             {property.description ? <AppText variant="body">{property.description}</AppText> : null}
+            {property.house_rules ? (
+              <>
+                <AppText variant="body" style={styles.price}>
+                  House rules
+                </AppText>
+                <AppText variant="body">{property.house_rules}</AppText>
+              </>
+            ) : null}
+            <AppText variant="body" style={styles.price}>
+              Stay reviews
+            </AppText>
+            {reviewLabel ? <AppText variant="body">{reviewLabel}</AppText> : null}
+            {reviews.length === 0 ? (
+              <AppText variant="body">No stay reviews yet.</AppText>
+            ) : (
+              reviews.map((review) => (
+                <View key={`${review.createdAt}-${review.note}`} style={styles.review}>
+                  <AppText variant="body" style={styles.price}>
+                    {ratingLabel(review.rating)}
+                  </AppText>
+                  <AppText variant="body">{review.note}</AppText>
+                  <AppText variant="body">{stayReviewDateLabel(review.createdAt)}</AppText>
+                  {review.ownerReply ? (
+                    <>
+                      <AppText variant="body" style={styles.price}>
+                        Owner reply
+                      </AppText>
+                      <AppText variant="body">{review.ownerReply}</AppText>
+                      {review.repliedAt ? <AppText variant="body">{stayReviewDateLabel(review.repliedAt)}</AppText> : null}
+                    </>
+                  ) : null}
+                </View>
+              ))
+            )}
             {visitStatus ? (
               <StatusBadge label={`Visit ${visitStatusLabel[visitStatus]}`} />
             ) : (
-              <AppButton
-                label={requestingVisit ? 'Requesting...' : 'Request a visit'}
-                disabled={requestingVisit}
-                onPress={() => void askForVisit()}
-              />
+              <>
+                <AppText variant="body" style={styles.price}>
+                  Visit date
+                </AppText>
+                <View style={styles.choices}>
+                  {leaveDateChoices(kolkataToday(), 14).map((item) => (
+                    <Pressable
+                      key={`visit-${item.value}`}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: visitOn === item.value }}
+                      onPress={() => setVisitOn(item.value)}
+                      style={[styles.choice, visitOn === item.value && styles.choiceSelected]}>
+                      <AppText variant="body" style={visitOn === item.value ? styles.choiceSelectedLabel : styles.choiceLabel}>
+                        {leaveDateLabel(item.value)}
+                      </AppText>
+                    </Pressable>
+                  ))}
+                </View>
+                <View style={styles.choices}>
+                  {visitParts.map((part) => (
+                    <Pressable
+                      key={part}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: visitPart === part }}
+                      onPress={() => setVisitPart(part)}
+                      style={[styles.choice, visitPart === part && styles.choiceSelected]}>
+                      <AppText variant="body" style={visitPart === part ? styles.choiceSelectedLabel : styles.choiceLabel}>
+                        {visitPartLabel(part)}
+                      </AppText>
+                    </Pressable>
+                  ))}
+                </View>
+                <AppButton
+                  label={requestingVisit ? 'Requesting...' : 'Request a visit'}
+                  disabled={requestingVisit}
+                  onPress={() => void askForVisit()}
+                />
+              </>
             )}
             {enquiryOpen ? (
               <StatusBadge label="Enquiry sent" />
@@ -443,14 +608,47 @@ export default function PropertyDetailsScreen() {
             {bookingStatus ? (
               <StatusBadge label={`Booking ${bookingStatusLabel[bookingStatus]}`} />
             ) : (
-              <AppButton
-                label={requestingBooking ? 'Requesting...' : 'Request a booking'}
-                disabled={requestingBooking}
-                onPress={() => void askForBooking()}
-              />
+              <>
+                <AppText variant="body" style={styles.price}>
+                  Move-in date
+                </AppText>
+                <View style={styles.choices}>
+                  {leaveDateChoices(kolkataToday(), 14).map((item) => (
+                    <Pressable
+                      key={item.value}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: moveIn === item.value }}
+                      onPress={() => setMoveIn(item.value)}
+                      style={[styles.choice, moveIn === item.value && styles.choiceSelected]}>
+                      <AppText variant="body" style={moveIn === item.value ? styles.choiceSelectedLabel : styles.choiceLabel}>
+                        {leaveDateLabel(item.value)}
+                      </AppText>
+                    </Pressable>
+                  ))}
+                </View>
+                <View style={styles.choices}>
+                  {visitParts.map((part) => (
+                    <Pressable
+                      key={`move-${part}`}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: moveInPart === part }}
+                      onPress={() => setMoveInPart(part)}
+                      style={[styles.choice, moveInPart === part && styles.choiceSelected]}>
+                      <AppText variant="body" style={moveInPart === part ? styles.choiceSelectedLabel : styles.choiceLabel}>
+                        {visitPartLabel(part)}
+                      </AppText>
+                    </Pressable>
+                  ))}
+                </View>
+                <AppButton
+                  label={requestingBooking ? 'Requesting...' : 'Request a booking'}
+                  disabled={requestingBooking}
+                  onPress={() => void askForBooking()}
+                />
+              </>
             )}
             <AppText variant="body">
-              A booking request does not take payment. Check-in keeps the confirmed bed until check-out.
+              Choose a move-in date and time of day. A booking request does not take payment. Check-in keeps the confirmed bed until check-out.
             </AppText>
             {error ? <AppText style={styles.error}>{error}</AppText> : null}
           </>
@@ -460,6 +658,12 @@ export default function PropertyDetailsScreen() {
           onLater={() => {
             if (promptAction === 'enquiry') {
               clearPendingEnquiryMessage();
+            }
+            if (promptAction === 'booking') {
+              clearPendingMoveIn();
+            }
+            if (promptAction === 'visit') {
+              clearPendingVisitOn();
             }
             setPromptAction(null);
           }}
@@ -496,7 +700,38 @@ const styles = StyleSheet.create({
     color: Brand.text,
     fontWeight: '700',
   },
+  review: {
+    width: '100%',
+    gap: Spacing.two,
+  },
   error: {
     color: Brand.danger,
+  },
+  choices: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  choice: {
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radius.button,
+    borderWidth: 1,
+    borderColor: Brand.border,
+    backgroundColor: Brand.white,
+  },
+  choiceSelected: {
+    backgroundColor: Brand.primary,
+    borderColor: Brand.primary,
+  },
+  choiceLabel: {
+    color: Brand.text,
+    fontWeight: '700',
+  },
+  choiceSelectedLabel: {
+    color: Brand.white,
+    fontWeight: '700',
   },
 });

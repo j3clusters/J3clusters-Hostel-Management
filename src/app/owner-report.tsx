@@ -45,6 +45,8 @@ export default function OwnerReportScreen() {
 
   const rows = report
     ? [
+        { label: 'Visits today', value: String(report.visitsToday) },
+        { label: 'Arrivals today', value: String(report.arrivalsToday) },
         { label: 'Properties waiting for approval', value: String(report.pendingProperties) },
         { label: 'Occupied beds', value: String(report.occupiedBeds) },
         { label: 'Open maintenance', value: String(report.openMaintenance) },
@@ -61,7 +63,7 @@ export default function OwnerReportScreen() {
       <View style={styles.content}>
         <AppText variant="eyebrow">J3cluster</AppText>
         <AppText variant="title">My report</AppText>
-        <AppText variant="body">Counts for your properties only. Resident names and phone numbers are not shown.</AppText>
+        <AppText variant="body">Counts for your properties only. Today follows India time. Resident names and phone numbers are not shown.</AppText>
         {role !== 'owner' ? (
           <AppText variant="body">This report is for an owner.</AppText>
         ) : loading ? (
@@ -78,6 +80,7 @@ export default function OwnerReportScreen() {
                 </AppText>
               </View>
             ))}
+            <AppButton label="Visit list" variant="secondary" onPress={() => router.push('/visit-list')} />
             <AppButton label="Booking requests" variant="secondary" onPress={() => router.push('/booking-requests')} />
             <AppButton label="Maintenance" variant="secondary" onPress={() => router.push('/maintenance')} />
             <AppButton label="Leave" variant="secondary" onPress={() => router.push('/leave')} />

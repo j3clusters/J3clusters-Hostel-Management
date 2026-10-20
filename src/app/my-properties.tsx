@@ -10,7 +10,7 @@ import { AppTextField } from '@/components/ui/app-text-field';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { categoryLabel, formatMonthlyRent, isPropertyCategory, type PropertyCategory } from '@/constants/property';
+import { categoryLabel, formatMonthlyRent, isPropertyCategory, propertyCategories, type PropertyCategory } from '@/constants/property';
 import { isSharingType, sharingLabel, sharingTypes, type SharingType } from '@/constants/rooms';
 import { Brand, Radius, Spacing } from '@/constants/theme';
 import { uploadPropertyCover } from '@/lib/property-photos';
@@ -23,8 +23,11 @@ type OwnedProperty = {
   category: PropertyCategory;
   city: string;
   locality: string;
+  address: string;
+  description: string;
   monthly_rent: number | string;
-  status: 'pending' | 'approved' | 'rejected';
+  houseRules: string;
+  status: 'pending' | 'approved' | 'rejected' | 'withdrawn';
   cover_path: string | null;
 };
 
@@ -32,6 +35,7 @@ const statusLabel = {
   pending: 'Waiting for approval',
   approved: 'Approved',
   rejected: 'Rejected',
+  withdrawn: 'Withdrawn',
 } as const;
 
 export default function MyPropertiesScreen() {
@@ -47,6 +51,20 @@ export default function MyPropertiesScreen() {
   const [sharing, setSharing] = useState<SharingType>('double');
   const [bedCount, setBedCount] = useState('2');
   const [addingRoom, setAddingRoom] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editCategory, setEditCategory] = useState<PropertyCategory>('pg');
+  const [editCity, setEditCity] = useState('');
+  const [editLocality, setEditLocality] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editRent, setEditRent] = useState('');
+  const [savingCorrection, setSavingCorrection] = useState(false);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
+  const [rulesId, setRulesId] = useState<string | null>(null);
+  const [rulesText, setRulesText] = useState('');
+  const [savingRules, setSavingRules] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -57,7 +75,7 @@ export default function MyPropertiesScreen() {
       let active = true;
       void supabase
         .from('properties')
-        .select('id, name, category, city, locality, monthly_rent, status, cover_path')
+        .select('id, name, category, city, locality, address, description, monthly_rent, house_rules, status, cover_path')
         .eq('owner_id', user.id)
         .order('created_at', { ascending: false })
         .then(({ data, error: loadError }) => {
@@ -73,7 +91,14 @@ export default function MyPropertiesScreen() {
                 if (!isPropertyCategory(item.category) || !isStatus(item.status)) {
                   return [];
                 }
-                return [{ ...item, category: item.category, status: item.status }];
+                return [{
+                  ...item,
+                  category: item.category,
+                  status: item.status,
+                  address: typeof item.address === 'string' ? item.address : '',
+                  description: typeof item.description === 'string' ? item.description : '',
+                  houseRules: typeof item.house_rules === 'string' ? item.house_rules : '',
+                }];
               }),
             );
           }
@@ -138,6 +163,7 @@ export default function MyPropertiesScreen() {
     }
 
     setAddingRoom(true);
+    setEditingId(null);
     setError('');
     const { data, error: addError } = await supabase.rpc('add_room', {
       target_property: propertyId,
@@ -158,6 +184,146 @@ export default function MyPropertiesScreen() {
     ]);
     setRoomName('');
     setRoomPropertyId(null);
+  }
+
+  function beginCorrect(property: OwnedProperty) {
+    const amount = Number(property.monthly_rent);
+    setRoomPropertyId(null);
+    setRulesId(null);
+    setEditingId(property.id);
+    setEditName(property.name);
+    setEditCategory(property.category);
+    setEditCity(property.city);
+    setEditLocality(property.locality);
+    setEditAddress(property.address);
+    setEditDescription(property.description);
+    setEditRent(Number.isFinite(amount) ? String(amount) : '');
+    setError('');
+  }
+
+  async function saveCorrection(propertyId: string) {
+    if (!supabase || savingCorrection) {
+      return;
+    }
+
+    const monthlyRent = Number(editRent);
+    if (
+      editName.trim().length < 2 ||
+      editName.trim().length > 80 ||
+      editCity.trim().length < 2 ||
+      editCity.trim().length > 60 ||
+      editLocality.trim().length < 2 ||
+      editLocality.trim().length > 60 ||
+      editAddress.trim().length < 5 ||
+      editAddress.trim().length > 200 ||
+      editDescription.trim().length < 10 ||
+      editDescription.trim().length > 500
+    ) {
+      setError('Enter the name, city, locality, address, and a short description.');
+      return;
+    }
+    if (!Number.isFinite(monthlyRent) || monthlyRent <= 0 || monthlyRent > 1000000) {
+      setError('Enter a monthly rent greater than 0 and up to 1000000.');
+      return;
+    }
+
+    setSavingCorrection(true);
+    setError('');
+    const { error: saveError } = await supabase.rpc('correct_pending_property', {
+      target_property: propertyId,
+      property_name: editName.trim(),
+      property_category: editCategory,
+      property_city: editCity.trim(),
+      property_locality: editLocality.trim(),
+      property_address: editAddress.trim(),
+      property_description: editDescription.trim(),
+      property_rent: monthlyRent,
+    });
+    setSavingCorrection(false);
+
+    if (saveError) {
+      setError(saveError.message);
+      return;
+    }
+
+    setProperties((current) =>
+      current.map((item) =>
+        item.id === propertyId
+          ? {
+              ...item,
+              name: editName.trim(),
+              category: editCategory,
+              city: editCity.trim(),
+              locality: editLocality.trim(),
+              address: editAddress.trim(),
+              description: editDescription.trim(),
+              monthly_rent: monthlyRent,
+            }
+          : item,
+      ),
+    );
+    setEditingId(null);
+  }
+
+  async function withdrawProperty(propertyId: string) {
+    if (!supabase || withdrawingId) {
+      return;
+    }
+
+    setWithdrawingId(propertyId);
+    setError('');
+    const { error: withdrawError } = await supabase.rpc('withdraw_pending_property', {
+      target_property: propertyId,
+    });
+    setWithdrawingId(null);
+
+    if (withdrawError) {
+      setError(withdrawError.message);
+      return;
+    }
+
+    setProperties((current) =>
+      current.map((item) => (item.id === propertyId ? { ...item, status: 'withdrawn' } : item)),
+    );
+    setConfirmingId(null);
+    setEditingId(null);
+  }
+
+  function beginRules(property: OwnedProperty) {
+    setEditingId(null);
+    setConfirmingId(null);
+    setRoomPropertyId(null);
+    setRulesId(property.id);
+    setRulesText(property.houseRules);
+    setError('');
+  }
+
+  async function saveRules(propertyId: string) {
+    if (!supabase || savingRules) {
+      return;
+    }
+
+    const cleaned = rulesText.trim();
+    if (cleaned.length > 0 && (cleaned.length < 10 || cleaned.length > 500)) {
+      setError('Write house rules of 10 to 500 characters, or leave them blank.');
+      return;
+    }
+
+    setSavingRules(true);
+    setError('');
+    const { error: saveError } = await supabase.rpc('set_house_rules', {
+      target_property: propertyId,
+      rules_text: cleaned,
+    });
+    setSavingRules(false);
+
+    if (saveError) {
+      setError(saveError.message);
+      return;
+    }
+
+    setProperties((current) => current.map((item) => (item.id === propertyId ? { ...item, houseRules: cleaned } : item)));
+    setRulesId(null);
   }
 
   async function changeCover(propertyId: string) {
@@ -207,7 +373,9 @@ export default function MyPropertiesScreen() {
       <View style={styles.content}>
         <AppText variant="eyebrow">J3cluster</AppText>
         <AppText variant="title">My properties</AppText>
-        <AppText variant="body">Add rooms and a cover photo. Visitors see them only after approval.</AppText>
+        <AppText variant="body">
+          Add rooms and a cover photo. House rules show on an approved stay. You can correct or withdraw a property while it is waiting for approval.
+        </AppText>
         {role !== 'owner' ? (
           <AppText variant="body">Only an owner can manage property photos.</AppText>
         ) : loading ? (
@@ -265,13 +433,112 @@ export default function MyPropertiesScreen() {
                     />
                   </>
                 ) : (
-                  <AppButton label="Add a room" variant="secondary" onPress={() => setRoomPropertyId(property.id)} />
+                  <AppButton
+                    label="Add a room"
+                    variant="secondary"
+                    onPress={() => {
+                      setEditingId(null);
+                      setRulesId(null);
+                      setRoomPropertyId(property.id);
+                    }}
+                  />
                 )}
                 <AppButton
                   label={uploadingId === property.id ? 'Uploading...' : property.cover_path ? 'Change photo' : 'Add photo'}
                   disabled={uploadingId !== null}
                   onPress={() => void changeCover(property.id)}
                 />
+                {property.houseRules ? <AppText variant="body">{property.houseRules}</AppText> : null}
+                {(property.status === 'pending' || property.status === 'approved') && rulesId === property.id ? (
+                  <>
+                    <AppTextField
+                      label="House rules"
+                      value={rulesText}
+                      onChangeText={setRulesText}
+                      autoCapitalize="sentences"
+                      multiline
+                    />
+                    <AppButton
+                      label={savingRules ? 'Saving...' : 'Save house rules'}
+                      disabled={savingRules}
+                      onPress={() => void saveRules(property.id)}
+                    />
+                    <AppButton label="Cancel" variant="secondary" onPress={() => setRulesId(null)} />
+                  </>
+                ) : property.status === 'pending' || property.status === 'approved' ? (
+                  <AppButton
+                    label={property.houseRules ? 'Edit house rules' : 'Add house rules'}
+                    variant="secondary"
+                    onPress={() => beginRules(property)}
+                  />
+                ) : null}
+                {property.status === 'pending' && editingId === property.id ? (
+                  <>
+                    <AppTextField label="Property name" value={editName} onChangeText={setEditName} autoCapitalize="words" />
+                    <View style={styles.choices}>
+                      {propertyCategories.map((item) => (
+                        <Pressable
+                          key={item.value}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: editCategory === item.value }}
+                          onPress={() => setEditCategory(item.value)}
+                          style={[styles.choice, editCategory === item.value && styles.choiceSelected]}>
+                          <AppText variant="body" style={editCategory === item.value ? styles.choiceSelectedLabel : styles.choiceLabel}>
+                            {item.label}
+                          </AppText>
+                        </Pressable>
+                      ))}
+                    </View>
+                    <AppTextField label="City" value={editCity} onChangeText={setEditCity} autoCapitalize="words" />
+                    <AppTextField label="Locality" value={editLocality} onChangeText={setEditLocality} autoCapitalize="words" />
+                    <AppTextField label="Address" value={editAddress} onChangeText={setEditAddress} autoCapitalize="sentences" />
+                    <AppTextField
+                      label="Description"
+                      value={editDescription}
+                      onChangeText={setEditDescription}
+                      autoCapitalize="sentences"
+                      multiline
+                    />
+                    <AppTextField label="Monthly rent in INR" value={editRent} onChangeText={setEditRent} keyboardType="decimal-pad" />
+                    <AppButton
+                      label={savingCorrection ? 'Saving...' : 'Save correction'}
+                      disabled={savingCorrection}
+                      onPress={() => void saveCorrection(property.id)}
+                    />
+                    <AppButton label="Cancel" variant="secondary" onPress={() => setEditingId(null)} />
+                  </>
+                ) : property.status === 'pending' ? (
+                  <>
+                    <AppButton
+                      label="Correct details"
+                      variant="secondary"
+                      onPress={() => {
+                        setConfirmingId(null);
+                        beginCorrect(property);
+                      }}
+                    />
+                    {confirmingId === property.id ? (
+                      <>
+                        <AppText variant="body">This removes it from review.</AppText>
+                        <AppButton
+                          label={withdrawingId === property.id ? 'Withdrawing...' : 'Confirm withdraw'}
+                          disabled={withdrawingId !== null}
+                          onPress={() => void withdrawProperty(property.id)}
+                        />
+                        <AppButton label="Cancel" variant="secondary" onPress={() => setConfirmingId(null)} />
+                      </>
+                    ) : (
+                      <AppButton
+                        label="Withdraw"
+                        variant="secondary"
+                        onPress={() => {
+                          setEditingId(null);
+                          setConfirmingId(property.id);
+                        }}
+                      />
+                    )}
+                  </>
+                ) : null}
               </View>
             </View>
           ))
@@ -283,7 +550,7 @@ export default function MyPropertiesScreen() {
 }
 
 function isStatus(value: string): value is OwnedProperty['status'] {
-  return value === 'pending' || value === 'approved' || value === 'rejected';
+  return value === 'pending' || value === 'approved' || value === 'rejected' || value === 'withdrawn';
 }
 
 const styles = StyleSheet.create({

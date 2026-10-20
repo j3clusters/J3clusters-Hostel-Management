@@ -45,6 +45,8 @@ export default function ResidentReportScreen() {
 
   const rows = report
     ? [
+        { label: 'Visits today', value: String(report.visitsToday) },
+        { label: 'Arrivals today', value: String(report.arrivalsToday) },
         { label: 'Open maintenance', value: String(report.openMaintenance) },
         { label: 'Leave requests waiting', value: String(report.waitingLeave) },
         { label: 'Rent charges still due', value: String(report.rentDueCount) },
@@ -59,7 +61,7 @@ export default function ResidentReportScreen() {
       <View style={styles.content}>
         <AppText variant="eyebrow">J3cluster</AppText>
         <AppText variant="title">My stay</AppText>
-        <AppText variant="body">Your stay only. Other residents are not shown.</AppText>
+        <AppText variant="body">Your stay only. Today follows India time. Other residents are not shown.</AppText>
         {role !== 'resident' ? (
           <AppText variant="body">This summary is for a resident.</AppText>
         ) : loading ? (
@@ -83,6 +85,7 @@ export default function ResidentReportScreen() {
                 </AppText>
               </View>
             ))}
+            <AppButton label="Visit list" variant="secondary" onPress={() => router.push('/visit-list')} />
             <AppButton label="Booking requests" variant="secondary" onPress={() => router.push('/booking-requests')} />
             <AppButton label="Maintenance" variant="secondary" onPress={() => router.push('/maintenance')} />
             <AppButton label="Leave" variant="secondary" onPress={() => router.push('/leave')} />

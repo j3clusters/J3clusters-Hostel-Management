@@ -9,6 +9,8 @@ export type OwnerReport = {
   rentDueAmount: number;
   depositsDueCount: number;
   depositsDueAmount: number;
+  visitsToday: number;
+  arrivalsToday: number;
 };
 
 export function reportAmount(amount: number) {
@@ -41,6 +43,8 @@ export async function loadOwnerReport(): Promise<{ error: string; report: OwnerR
       rentDueAmount: numberValue(row.rent_due_amount),
       depositsDueCount: numberValue(row.deposits_due_count),
       depositsDueAmount: numberValue(row.deposits_due_amount),
+      visitsToday: numberValue(row.visits_today),
+      arrivalsToday: numberValue(row.arrivals_today),
     },
   };
 }

@@ -9,7 +9,7 @@ import { Screen } from '@/components/ui/screen';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Brand, Radius, Spacing } from '@/constants/theme';
 import { kolkataToday, leaveDateChoices, leaveDateLabel } from '@/lib/leave-requests';
-import { isVisitStatus, rescheduleVisit, updateVisit, visitStatusLabel, type VisitStatus } from '@/lib/property-visits';
+import { isVisitPart, isVisitStatus, rescheduleVisit, updateVisit, visitPartLabel, visitStatusLabel, type VisitPart, type VisitStatus } from '@/lib/property-visits';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -18,6 +18,7 @@ type VisitItem = {
   status: VisitStatus;
   propertyId: string;
   visitOn: string | null;
+  visitPart: VisitPart | null;
   name: string;
   locality: string;
   city: string;
@@ -56,13 +57,13 @@ export default function VisitListScreen() {
       void Promise.all([
         supabase
           .from('property_visits')
-          .select('id, status, property_id, visit_on, properties(id, name, locality, city)')
+          .select('id, status, property_id, visit_on, visit_part, properties(id, name, locality, city)')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false }),
         role === 'owner'
           ? supabase
               .from('property_visits')
-              .select('id, status, user_id, property_id, visit_on, properties!inner(id, name, locality, city, owner_id)')
+              .select('id, status, user_id, property_id, visit_on, visit_part, properties!inner(id, name, locality, city, owner_id)')
               .eq('properties.owner_id', user.id)
               .order('created_at', { ascending: false })
           : Promise.resolve({ data: [], error: null }),
@@ -249,6 +250,7 @@ function toVisitItems(
     status: string;
     property_id: string;
     visit_on?: string | null;
+    visit_part?: string | null;
     properties: PropertyEmbed | PropertyEmbed[] | null;
   }[],
 ) {
@@ -263,6 +265,7 @@ function toVisitItems(
         status: row.status,
         propertyId: row.property_id,
         visitOn: typeof row.visit_on === 'string' ? row.visit_on : null,
+        visitPart: typeof row.visit_part === 'string' && isVisitPart(row.visit_part) ? row.visit_part : null,
         name: property.name,
         locality: property.locality,
         city: property.city,
@@ -307,7 +310,12 @@ function VisitCard({
       <AppText variant="body">
         {visit.locality}, {visit.city}
       </AppText>
-      {visit.visitOn ? <AppText variant="body">{leaveDateLabel(visit.visitOn)}</AppText> : null}
+      {visit.visitOn ? (
+        <AppText variant="body">
+          {leaveDateLabel(visit.visitOn)}
+          {visit.visitPart ? ` · ${visitPartLabel(visit.visitPart)}` : ''}
+        </AppText>
+      ) : null}
       <AppButton label="View stay" variant="secondary" onPress={onOpen} />
       {onConfirm ? <AppButton label={busy ? 'Saving...' : 'Confirm visit'} disabled={busy} onPress={onConfirm} /> : null}
       {onComplete ? (

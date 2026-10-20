@@ -12,6 +12,7 @@ import { Screen } from '@/components/ui/screen';
 import { isPropertyCategory, propertyCategories, type PropertyCategory } from '@/constants/property';
 import { Brand, Radius, Spacing } from '@/constants/theme';
 import { removeSavedStay, saveApprovedStay } from '@/lib/saved-stays';
+import { loadReviewSummaries, reviewSummaryLabel } from '@/lib/stay-reviews';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -39,6 +40,7 @@ export default function FindAStayScreen() {
   const [reloadKey, setReloadKey] = useState(0);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<CategoryFilter>('all');
+  const [reviewLabels, setReviewLabels] = useState<Record<string, string>>({});
 
   useFocusEffect(
     useCallback(() => {
@@ -49,20 +51,30 @@ export default function FindAStayScreen() {
       const attempt = reloadKey;
       let active = true;
 
-      void supabase
-        .from('properties')
-        .select('id, name, category, city, locality, monthly_rent, cover_path')
-        .eq('status', 'approved')
-        .order('created_at', { ascending: false })
-        .then(({ data, error: loadError }) => {
+      void Promise.all([
+        supabase
+          .from('properties')
+          .select('id, name, category, city, locality, monthly_rent, cover_path')
+          .eq('status', 'approved')
+          .order('created_at', { ascending: false }),
+        loadReviewSummaries(),
+      ]).then(([listResult, summaryResult]) => {
           if (!active || attempt !== reloadKey) {
             return;
           }
-          if (loadError) {
-            setError(loadError.message);
+          if (listResult.error || summaryResult.error) {
+            setError(listResult.error?.message || summaryResult.error);
           } else {
             setError('');
-            setListings((data ?? []).filter((item): item is Listing => isPropertyCategory(item.category)));
+            setListings((listResult.data ?? []).filter((item): item is Listing => isPropertyCategory(item.category)));
+            setReviewLabels(
+              Object.fromEntries(
+                Object.values(summaryResult.summaries).map((summary) => [
+                  summary.propertyId,
+                  reviewSummaryLabel(summary.averageRating, summary.reviewCount),
+                ]),
+              ),
+            );
           }
           setLoading(false);
         });
@@ -185,6 +197,7 @@ export default function FindAStayScreen() {
               listing={listing}
               saved={Boolean(user) && savedIds.includes(listing.id)}
               saving={savingId === listing.id}
+              reviewLabel={reviewLabels[listing.id]}
               onPress={() => router.push(`/property/${listing.id}` as Href)}
               onSavePress={() => void toggleSave(listing.id)}
             />

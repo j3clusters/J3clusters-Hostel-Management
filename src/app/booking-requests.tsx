@@ -15,9 +15,11 @@ import {
   checkOutBooking,
   confirmBookingRequest,
   isBookingStatus,
+  moveInLabel,
   updateBookingRequest,
   type BookingStatus,
 } from '@/lib/booking-requests';
+import { isVisitPart, visitPartLabel } from '@/lib/property-visits';
 import {
   depositLabel,
   depositReturnedLabel,
@@ -49,6 +51,8 @@ type BookingItem = {
   name: string;
   locality: string;
   city: string;
+  moveIn: string | null;
+  moveInPart: 'morning' | 'afternoon' | 'evening' | null;
 };
 
 type PropertyEmbed = {
@@ -83,13 +87,13 @@ export default function BookingRequestsScreen() {
       void Promise.all([
         supabase
           .from('booking_requests')
-          .select('id, status, property_id, bed_id, beds(label, rooms(name)), properties(id, name, locality, city)')
+          .select('id, status, property_id, bed_id, move_in, move_in_part, beds(label, rooms(name)), properties(id, name, locality, city)')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false }),
         role === 'owner'
           ? supabase
               .from('booking_requests')
-              .select('id, status, user_id, property_id, bed_id, beds(label, rooms(name)), properties!inner(id, name, locality, city, owner_id)')
+              .select('id, status, user_id, property_id, bed_id, move_in, move_in_part, beds(label, rooms(name)), properties!inner(id, name, locality, city, owner_id)')
               .eq('properties.owner_id', user.id)
               .order('created_at', { ascending: false })
           : Promise.resolve({ data: [], error: null }),
@@ -480,7 +484,7 @@ export default function BookingRequestsScreen() {
         <AppText variant="eyebrow">J3cluster</AppText>
         <AppText variant="title">Booking requests</AppText>
         <AppText variant="body">
-          A request does not take payment. Recording rent writes an invoice. Marking it received writes a receipt.
+          A request includes a move-in date and time of day. It does not take payment. Recording rent writes an invoice. Marking it received writes a receipt.
         </AppText>
         {loading ? (
           <View style={styles.skeleton} />
@@ -585,6 +589,8 @@ function toBookingItems(
     status: string;
     property_id: string;
     bed_id?: string | null;
+    move_in?: string | null;
+    move_in_part?: string | null;
     beds?: unknown;
     properties: PropertyEmbed | PropertyEmbed[] | null;
   }[],
@@ -604,6 +610,8 @@ function toBookingItems(
         name: property.name,
         locality: property.locality,
         city: property.city,
+        moveIn: typeof row.move_in === 'string' ? row.move_in : null,
+        moveInPart: typeof row.move_in_part === 'string' && isVisitPart(row.move_in_part) ? row.move_in_part : null,
       },
     ];
   });
@@ -680,6 +688,12 @@ function BookingCard({
         {request.locality}, {request.city}
       </AppText>
       {request.bedLabel ? <AppText variant="body">{request.bedLabel}</AppText> : null}
+      {request.moveIn ? (
+        <AppText variant="body">
+          Move-in {moveInLabel(request.moveIn)}
+          {request.moveInPart ? ` · ${visitPartLabel(request.moveInPart)}` : ''}
+        </AppText>
+      ) : null}
       {rentCharges.map((charge) => (
         <View key={charge.id} style={styles.rent}>
           <AppText variant="body">{rentChargeLabel(charge)}</AppText>

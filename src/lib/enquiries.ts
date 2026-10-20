@@ -74,3 +74,20 @@ export async function closeEnquiry(enquiryId: string) {
 
   return '';
 }
+
+export async function replyToEnquiry(enquiryId: string, note: string) {
+  if (!supabase) {
+    return 'Supabase is not connected.';
+  }
+
+  const cleaned = note.trim();
+  if (cleaned.length < 10 || cleaned.length > 200) {
+    return 'Write 10 to 200 characters.';
+  }
+
+  const { error } = await supabase.rpc('reply_to_enquiry', {
+    target_enquiry: enquiryId,
+    reply_note: cleaned,
+  });
+  return error ? error.message : '';
+}

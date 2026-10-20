@@ -21,11 +21,12 @@ type Props = {
   listing: PropertyCardData;
   saved: boolean;
   saving?: boolean;
+  reviewLabel?: string;
   onPress: () => void;
   onSavePress: () => void;
 };
 
-export function PropertyCard({ listing, saved, saving = false, onPress, onSavePress }: Props) {
+export function PropertyCard({ listing, saved, saving = false, reviewLabel, onPress, onSavePress }: Props) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -49,6 +50,7 @@ export function PropertyCard({ listing, saved, saving = false, onPress, onSavePr
         <AppText variant="body" style={styles.price}>
           {formatMonthlyRent(listing.monthly_rent)}
         </AppText>
+        {reviewLabel ? <AppText variant="body">{reviewLabel}</AppText> : null}
         <AppText variant="body" style={styles.action}>
           View details
         </AppText>

@@ -9,6 +9,7 @@ import { Screen } from '@/components/ui/screen';
 import { isPropertyCategory } from '@/constants/property';
 import { Brand, Radius, Spacing } from '@/constants/theme';
 import { removeSavedStay } from '@/lib/saved-stays';
+import { loadReviewSummaries, reviewSummaryLabel } from '@/lib/stay-reviews';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -20,6 +21,7 @@ export default function SavedStaysScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [stays, setStays] = useState<SavedStay[]>([]);
+  const [reviewLabels, setReviewLabels] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(Boolean(user));
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [error, setError] = useState(user ? '' : 'Sign in to see saved stays.');
@@ -31,22 +33,24 @@ export default function SavedStaysScreen() {
       }
 
       let active = true;
-      void supabase
-        .from('saved_properties')
-        .select('id, property_id, properties(id, name, category, city, locality, monthly_rent, cover_path)')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .then(({ data, error: loadError }) => {
+      void Promise.all([
+        supabase
+          .from('saved_properties')
+          .select('id, property_id, properties(id, name, category, city, locality, monthly_rent, cover_path)')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+        loadReviewSummaries(),
+      ]).then(([stayResult, summaryResult]) => {
           if (!active) {
             return;
           }
-          if (loadError) {
-            setError(loadError.message);
+          if (stayResult.error || summaryResult.error) {
+            setError(stayResult.error?.message || summaryResult.error);
             setLoading(false);
             return;
           }
 
-          const nextStays = (data ?? []).flatMap((row) => {
+          const nextStays = (stayResult.data ?? []).flatMap((row) => {
             const property = Array.isArray(row.properties) ? row.properties[0] : row.properties;
             if (!property || !isPropertyCategory(property.category)) {
               return [];
@@ -66,6 +70,14 @@ export default function SavedStaysScreen() {
           });
           setError('');
           setStays(nextStays);
+          setReviewLabels(
+            Object.fromEntries(
+              Object.values(summaryResult.summaries).map((summary) => [
+                summary.propertyId,
+                reviewSummaryLabel(summary.averageRating, summary.reviewCount),
+              ]),
+            ),
+          );
           setLoading(false);
         });
 
@@ -112,6 +124,7 @@ export default function SavedStaysScreen() {
               listing={stay}
               saved
               saving={removingId === stay.id}
+              reviewLabel={reviewLabels[stay.id]}
               onPress={() => router.push(`/property/${stay.id}` as Href)}
               onSavePress={() => void removeStay(stay)}
             />

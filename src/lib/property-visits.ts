@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { addIsoDays, kolkataToday } from '@/lib/leave-requests';
 
 export const visitStatusLabel = {
   requested: 'Requested',
@@ -14,7 +15,57 @@ export function isVisitStatus(value: string): value is VisitStatus {
   return value in visitStatusLabel;
 }
 
-export async function requestVisit(userId: string, propertyId: string) {
+let pendingVisitOn = '';
+let pendingVisitPart = '';
+
+export function setPendingVisitOn(value: string) {
+  pendingVisitOn = value;
+}
+
+export function peekPendingVisitOn() {
+  return pendingVisitOn;
+}
+
+export function setPendingVisitPart(value: string) {
+  pendingVisitPart = value;
+}
+
+export function peekPendingVisitPart() {
+  return pendingVisitPart;
+}
+
+export function clearPendingVisitOn() {
+  pendingVisitOn = '';
+  pendingVisitPart = '';
+}
+
+export const visitParts = ['morning', 'afternoon', 'evening'] as const;
+
+export type VisitPart = (typeof visitParts)[number];
+
+export function isVisitPart(value: string): value is VisitPart {
+  return value === 'morning' || value === 'afternoon' || value === 'evening';
+}
+
+export function visitPartLabel(part: VisitPart) {
+  if (part === 'morning') {
+    return 'Morning';
+  }
+  if (part === 'afternoon') {
+    return 'Afternoon';
+  }
+  return 'Evening';
+}
+
+function isVisitDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const today = kolkataToday();
+  return value >= today && value <= addIsoDays(today, 30);
+}
+
+export async function requestVisit(userId: string, propertyId: string, visitOn: string, visitPart: string) {
   if (!supabase) {
     return 'Supabase is not connected.';
   }
@@ -32,11 +83,19 @@ export async function requestVisit(userId: string, propertyId: string) {
   if (!data) {
     return 'This stay is not available.';
   }
+  if (!isVisitDate(visitOn)) {
+    return 'Choose a visit date from today through the next 30 days.';
+  }
+  if (!isVisitPart(visitPart)) {
+    return 'Choose morning, afternoon, or evening.';
+  }
 
   const { error: insertError } = await supabase.from('property_visits').insert({
     user_id: userId,
     property_id: propertyId,
     status: 'requested',
+    visit_on: visitOn,
+    visit_part: visitPart,
   });
 
   if (insertError?.code === '23505') {
