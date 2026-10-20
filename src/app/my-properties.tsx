@@ -1,15 +1,17 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { PropertyCover } from '@/components/property-cover';
 import { AppButton } from '@/components/ui/app-button';
 import { AppText } from '@/components/ui/app-text';
+import { AppTextField } from '@/components/ui/app-text-field';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { categoryLabel, formatMonthlyRent, isPropertyCategory, type PropertyCategory } from '@/constants/property';
+import { isSharingType, sharingLabel, sharingTypes, type SharingType } from '@/constants/rooms';
 import { Brand, Radius, Spacing } from '@/constants/theme';
 import { uploadPropertyCover } from '@/lib/property-photos';
 import { supabase } from '@/lib/supabase';
@@ -39,6 +41,12 @@ export default function MyPropertiesScreen() {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [photoVersion, setPhotoVersion] = useState<Record<string, number>>({});
   const [error, setError] = useState(role === 'owner' ? '' : 'Only an owner can manage property photos.');
+  const [rooms, setRooms] = useState<{ id: string; propertyId: string; name: string; sharing: SharingType; bedCount: number }[]>([]);
+  const [roomPropertyId, setRoomPropertyId] = useState<string | null>(null);
+  const [roomName, setRoomName] = useState('');
+  const [sharing, setSharing] = useState<SharingType>('double');
+  const [bedCount, setBedCount] = useState('2');
+  const [addingRoom, setAddingRoom] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -77,6 +85,80 @@ export default function MyPropertiesScreen() {
       };
     }, [role, user]),
   );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!supabase || !user || role !== 'owner') {
+        return;
+      }
+
+      let active = true;
+      void supabase
+        .from('rooms')
+        .select('id, property_id, name, sharing_type, beds(id)')
+        .order('name', { ascending: true })
+        .then(({ data, error: loadError }) => {
+          if (!active || loadError) {
+            return;
+          }
+          setRooms(
+            (data ?? []).flatMap((room) => {
+              if (!isSharingType(room.sharing_type)) {
+                return [];
+              }
+              const roomBeds = Array.isArray(room.beds) ? room.beds : [];
+              return [
+                {
+                  id: room.id,
+                  propertyId: room.property_id,
+                  name: room.name,
+                  sharing: room.sharing_type,
+                  bedCount: roomBeds.length,
+                },
+              ];
+            }),
+          );
+        });
+
+      return () => {
+        active = false;
+      };
+    }, [role, user]),
+  );
+
+  async function addRoom(propertyId: string) {
+    if (!supabase || addingRoom) {
+      return;
+    }
+
+    const count = Number(bedCount);
+    if (roomName.trim().length < 2 || !Number.isInteger(count) || count < 1 || count > 12) {
+      setError('Enter a room name and a bed count from 1 to 12.');
+      return;
+    }
+
+    setAddingRoom(true);
+    setError('');
+    const { data, error: addError } = await supabase.rpc('add_room', {
+      target_property: propertyId,
+      room_name: roomName.trim(),
+      sharing,
+      bed_count: count,
+    });
+    setAddingRoom(false);
+
+    if (addError || !data) {
+      setError(addError?.message || 'The room could not be added.');
+      return;
+    }
+
+    setRooms((current) => [
+      ...current,
+      { id: data, propertyId, name: roomName.trim(), sharing, bedCount: count },
+    ]);
+    setRoomName('');
+    setRoomPropertyId(null);
+  }
 
   async function changeCover(propertyId: string) {
     if (uploadingId) {
@@ -125,7 +207,7 @@ export default function MyPropertiesScreen() {
       <View style={styles.content}>
         <AppText variant="eyebrow">J3cluster</AppText>
         <AppText variant="title">My properties</AppText>
-        <AppText variant="body">Add or replace a cover photo. Visitors see it only after approval.</AppText>
+        <AppText variant="body">Add rooms and a cover photo. Visitors see them only after approval.</AppText>
         {role !== 'owner' ? (
           <AppText variant="body">Only an owner can manage property photos.</AppText>
         ) : loading ? (
@@ -151,6 +233,40 @@ export default function MyPropertiesScreen() {
                   {categoryLabel[property.category]} · {property.locality}, {property.city}
                 </AppText>
                 <AppText variant="body">{formatMonthlyRent(property.monthly_rent)}</AppText>
+                {rooms
+                  .filter((room) => room.propertyId === property.id)
+                  .map((room) => (
+                    <AppText key={room.id} variant="body">
+                      {room.name} · {sharingLabel(room.sharing)} · {room.bedCount} beds
+                    </AppText>
+                  ))}
+                {roomPropertyId === property.id ? (
+                  <>
+                    <AppTextField label="Room name" value={roomName} onChangeText={setRoomName} autoCapitalize="words" />
+                    <View style={styles.choices}>
+                      {sharingTypes.map((item) => (
+                        <Pressable
+                          key={item.value}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: sharing === item.value }}
+                          onPress={() => setSharing(item.value)}
+                          style={[styles.choice, sharing === item.value && styles.choiceSelected]}>
+                          <AppText variant="body" style={sharing === item.value ? styles.choiceSelectedLabel : styles.choiceLabel}>
+                            {item.label}
+                          </AppText>
+                        </Pressable>
+                      ))}
+                    </View>
+                    <AppTextField label="Number of beds" value={bedCount} onChangeText={setBedCount} keyboardType="number-pad" />
+                    <AppButton
+                      label={addingRoom ? 'Adding...' : 'Save room'}
+                      disabled={addingRoom}
+                      onPress={() => void addRoom(property.id)}
+                    />
+                  </>
+                ) : (
+                  <AppButton label="Add a room" variant="secondary" onPress={() => setRoomPropertyId(property.id)} />
+                )}
                 <AppButton
                   label={uploadingId === property.id ? 'Uploading...' : property.cover_path ? 'Change photo' : 'Add photo'}
                   disabled={uploadingId !== null}
@@ -192,6 +308,33 @@ const styles = StyleSheet.create({
   name: {
     color: Brand.text,
     fontWeight: '800',
+  },
+  choices: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  choice: {
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radius.button,
+    borderWidth: 1,
+    borderColor: Brand.border,
+    backgroundColor: Brand.white,
+  },
+  choiceSelected: {
+    backgroundColor: Brand.primary,
+    borderColor: Brand.primary,
+  },
+  choiceLabel: {
+    color: Brand.text,
+    fontWeight: '700',
+  },
+  choiceSelectedLabel: {
+    color: Brand.white,
+    fontWeight: '700',
   },
   skeleton: {
     width: '100%',

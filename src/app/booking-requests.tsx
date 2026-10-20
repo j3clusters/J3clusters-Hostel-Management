@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Brand, Radius, Spacing } from '@/constants/theme';
-import { bookingStatusLabel, isBookingStatus, updateBookingRequest, type BookingStatus } from '@/lib/booking-requests';
+import { bookingStatusLabel, confirmBookingRequest, isBookingStatus, updateBookingRequest, type BookingStatus } from '@/lib/booking-requests';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -33,6 +33,8 @@ export default function BookingRequestsScreen() {
   const { user, role } = useAuth();
   const [mine, setMine] = useState<BookingItem[]>([]);
   const [incoming, setIncoming] = useState<BookingItem[]>([]);
+  const [beds, setBeds] = useState<{ id: string; propertyId: string; roomName: string; label: string }[]>([]);
+  const [takenBedIds, setTakenBedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(Boolean(user));
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState(user ? '' : 'Sign in to see booking requests.');
@@ -79,7 +81,65 @@ export default function BookingRequestsScreen() {
     }, [role, user]),
   );
 
-  async function changeStatus(requestId: string, status: 'confirmed' | 'rejected' | 'cancelled', list: 'mine' | 'incoming') {
+  useFocusEffect(
+    useCallback(() => {
+      if (!supabase || !user || role !== 'owner') {
+        return;
+      }
+
+      let active = true;
+      void Promise.all([
+        supabase.from('rooms').select('property_id, name, beds(id, label)'),
+        supabase.from('booking_requests').select('bed_id').eq('status', 'confirmed'),
+      ]).then(([roomResult, takenResult]) => {
+        if (!active) {
+          return;
+        }
+        if (roomResult.error || takenResult.error) {
+          setError(roomResult.error?.message || takenResult.error?.message || 'Rooms could not be loaded.');
+          return;
+        }
+
+        setBeds(
+          (roomResult.data ?? []).flatMap((room) => {
+            const roomBeds = Array.isArray(room.beds) ? room.beds : [];
+            return roomBeds.map((bed) => ({
+              id: bed.id,
+              propertyId: room.property_id,
+              roomName: room.name,
+              label: bed.label,
+            }));
+          }),
+        );
+        setTakenBedIds((takenResult.data ?? []).flatMap((row) => (row.bed_id ? [row.bed_id] : [])));
+      });
+
+      return () => {
+        active = false;
+      };
+    }, [role, user]),
+  );
+
+  async function confirmRequest(requestId: string, bedId: string) {
+    if (busyId) {
+      return;
+    }
+
+    setBusyId(requestId);
+    setError('');
+    const confirmError = await confirmBookingRequest(requestId, bedId);
+    setBusyId(null);
+
+    if (confirmError) {
+      setError(confirmError);
+      return;
+    }
+
+    setIncoming((current) => current.map((item) => (item.id === requestId ? { ...item, status: 'confirmed' } : item)));
+    setTakenBedIds((current) => [...current, bedId]);
+  }
+
+  async function changeStatus(requestId: string, status: 'rejected' | 'cancelled', list: 'mine' | 'incoming') {
     if (busyId) {
       return;
     }
@@ -149,11 +209,12 @@ export default function BookingRequestsScreen() {
                       request={request}
                       busy={busyId === request.id}
                       onOpen={() => router.push(`/property/${request.propertyId}` as Href)}
-                      onConfirm={
+                      beds={
                         request.status === 'requested'
-                          ? () => void changeStatus(request.id, 'confirmed', 'incoming')
-                          : undefined
+                          ? beds.filter((bed) => bed.propertyId === request.propertyId && !takenBedIds.includes(bed.id))
+                          : []
                       }
+                      onConfirmBed={(bedId) => void confirmRequest(request.id, bedId)}
                       onReject={
                         request.status === 'requested'
                           ? () => void changeStatus(request.id, 'rejected', 'incoming')
@@ -200,15 +261,17 @@ function toBookingItems(
 function BookingCard({
   request,
   busy,
+  beds = [],
   onOpen,
-  onConfirm,
+  onConfirmBed,
   onReject,
   onCancel,
 }: {
   request: BookingItem;
   busy: boolean;
+  beds?: { id: string; roomName: string; label: string }[];
   onOpen: () => void;
-  onConfirm?: () => void;
+  onConfirmBed?: (bedId: string) => void;
   onReject?: () => void;
   onCancel?: () => void;
 }) {
@@ -222,7 +285,19 @@ function BookingCard({
         {request.locality}, {request.city}
       </AppText>
       <AppButton label="View stay" variant="secondary" onPress={onOpen} />
-      {onConfirm ? <AppButton label={busy ? 'Saving...' : 'Confirm request'} disabled={busy} onPress={onConfirm} /> : null}
+      {onConfirmBed && beds.length === 0 && request.status === 'requested' ? (
+        <AppText variant="body">Add a room with beds in My properties before confirming.</AppText>
+      ) : null}
+      {onConfirmBed
+        ? beds.map((bed) => (
+            <AppButton
+              key={bed.id}
+              label={busy ? 'Saving...' : `Confirm ${bed.roomName}, ${bed.label}`}
+              disabled={busy}
+              onPress={() => onConfirmBed(bed.id)}
+            />
+          ))
+        : null}
       {onReject ? <AppButton label="Reject" variant="secondary" disabled={busy} onPress={onReject} /> : null}
       {onCancel ? <AppButton label="Cancel request" variant="secondary" disabled={busy} onPress={onCancel} /> : null}
     </View>

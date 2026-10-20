@@ -45,7 +45,20 @@ export async function requestBooking(userId: string, propertyId: string) {
   return insertError ? insertError.message : '';
 }
 
-export async function updateBookingRequest(requestId: string, status: 'confirmed' | 'rejected' | 'cancelled') {
+export async function confirmBookingRequest(requestId: string, bedId: string) {
+  if (!supabase) {
+    return 'Supabase is not connected.';
+  }
+
+  const { error } = await supabase.rpc('confirm_booking_request', {
+    request_id: requestId,
+    target_bed: bedId,
+  });
+
+  return error ? error.message : '';
+}
+
+export async function updateBookingRequest(requestId: string, status: 'rejected' | 'cancelled') {
   if (!supabase) {
     return 'Supabase is not connected.';
   }

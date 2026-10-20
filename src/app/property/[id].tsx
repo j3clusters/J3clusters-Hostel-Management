@@ -11,6 +11,7 @@ import { AppTextField } from '@/components/ui/app-text-field';
 import { Screen } from '@/components/ui/screen';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { categoryLabel, formatMonthlyRent, isPropertyCategory } from '@/constants/property';
+import { isSharingType, sharingLabel } from '@/constants/rooms';
 import { Brand, Radius, Spacing } from '@/constants/theme';
 import { isBookingStatus, requestBooking, bookingStatusLabel, type BookingStatus } from '@/lib/booking-requests';
 import {
@@ -53,6 +54,7 @@ export default function PropertyDetailsScreen() {
   const [visitStatus, setVisitStatus] = useState<VisitStatus | null>(null);
   const [requestingVisit, setRequestingVisit] = useState(false);
   const [bookingStatus, setBookingStatus] = useState<BookingStatus | null>(null);
+  const [bedSummary, setBedSummary] = useState<{ roomName: string; sharing: string; total: number; available: number }[]>([]);
   const [requestingBooking, setRequestingBooking] = useState(false);
   const [enquiryOpen, setEnquiryOpen] = useState(false);
   const [enquiryMessage, setEnquiryMessage] = useState('');
@@ -87,6 +89,38 @@ export default function PropertyDetailsScreen() {
         }
         setLoading(false);
       });
+
+    return () => {
+      active = false;
+    };
+  }, [propertyId]);
+
+  useEffect(() => {
+    if (!supabase || !propertyId) {
+      return;
+    }
+
+    let active = true;
+    void supabase.rpc('property_bed_summary', { target_id: propertyId }).then(({ data, error: loadError }) => {
+      if (!active || loadError || !data) {
+        return;
+      }
+      setBedSummary(
+        (data as { room_name: string; sharing_type: string; total_beds: number; available_beds: number }[]).flatMap((row) => {
+          if (!isSharingType(row.sharing_type)) {
+            return [];
+          }
+          return [
+            {
+              roomName: row.room_name,
+              sharing: sharingLabel(row.sharing_type),
+              total: row.total_beds,
+              available: row.available_beds,
+            },
+          ];
+        }),
+      );
+    });
 
     return () => {
       active = false;
@@ -368,6 +402,15 @@ export default function PropertyDetailsScreen() {
             <AppText variant="body" style={styles.price}>
               {formatMonthlyRent(property.monthly_rent)}
             </AppText>
+            {bedSummary.length === 0 ? (
+              <AppText variant="body">Rooms have not been added yet.</AppText>
+            ) : (
+              bedSummary.map((room, index) => (
+                <AppText key={`${room.roomName}-${index}`} variant="body">
+                  {room.roomName} · {room.sharing} · {room.available} of {room.total} beds available
+                </AppText>
+              ))
+            )}
             {property.address ? <AppText variant="body">{property.address}</AppText> : null}
             {property.description ? <AppText variant="body">{property.description}</AppText> : null}
             {visitStatus ? (
@@ -407,7 +450,7 @@ export default function PropertyDetailsScreen() {
               />
             )}
             <AppText variant="body">
-              A booking request does not take payment or reserve a room. It is separate from a visit or an enquiry.
+              A booking request does not take payment. Confirmation holds one bed and does not reserve a second bed for someone else.
             </AppText>
             {error ? <AppText style={styles.error}>{error}</AppText> : null}
           </>
