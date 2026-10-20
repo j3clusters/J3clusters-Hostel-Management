@@ -1,4 +1,5 @@
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/app-button';
@@ -11,6 +12,30 @@ import { useAuth } from '@/providers/auth-provider';
 export default function WelcomeScreen() {
   const router = useRouter();
   const { user, role, profileMissing } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!supabase || !user || (role !== 'owner' && role !== 'resident')) {
+        return;
+      }
+
+      let active = true;
+      void supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .is('read_at', null)
+        .then(({ count }) => {
+          if (active) {
+            setUnreadCount(count ?? 0);
+          }
+        });
+
+      return () => {
+        active = false;
+      };
+    }, [role, user]),
+  );
 
   return (
     <Screen centered>
@@ -61,11 +86,25 @@ export default function WelcomeScreen() {
             <AppButton label="Enquiries" variant="secondary" onPress={() => router.push('/enquiries')} />
             <AppButton label="Booking requests" variant="secondary" onPress={() => router.push('/booking-requests')} />
             {role === 'owner' || role === 'resident' ? (
+              <AppButton
+                label={unreadCount > 0 ? `Notifications (${unreadCount})` : 'Notifications'}
+                variant="secondary"
+                onPress={() => router.push('/notifications')}
+              />
+            ) : null}
+            {role === 'owner' || role === 'resident' ? (
               <AppButton label="Maintenance" variant="secondary" onPress={() => router.push('/maintenance')} />
+            ) : null}
+            {role === 'owner' || role === 'resident' ? (
+              <AppButton label="Leave" variant="secondary" onPress={() => router.push('/leave')} />
+            ) : null}
+            {role === 'owner' || role === 'resident' ? (
+              <AppButton label="Notices" variant="secondary" onPress={() => router.push('/announcements')} />
             ) : null}
             {role === 'owner' ? (
               <AppButton label="My properties" onPress={() => router.push('/my-properties')} />
             ) : null}
+            {role === 'owner' ? <AppButton label="My report" onPress={() => router.push('/owner-report')} /> : null}
             {role === 'owner' ? <AppButton label="Expenses" onPress={() => router.push('/expenses')} /> : null}
             {role === 'owner' ? (
               <AppButton label="Add a property" onPress={() => router.push('/add-property')} />
@@ -76,6 +115,7 @@ export default function WelcomeScreen() {
             {role === 'admin' ? (
               <AppButton label="Review properties" onPress={() => router.push('/admin-properties')} />
             ) : null}
+            {role === 'admin' ? <AppButton label="Reports" onPress={() => router.push('/admin-reports')} /> : null}
             <AppButton
               label="Sign out"
               variant="secondary"
