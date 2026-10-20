@@ -6,26 +6,20 @@ import { AppButton } from '@/components/ui/app-button';
 import { AppText } from '@/components/ui/app-text';
 import { AppTextField } from '@/components/ui/app-text-field';
 import { Screen } from '@/components/ui/screen';
+import { propertyCategories, type PropertyCategory } from '@/constants/property';
 import { Brand, Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
-
-const categories = [
-  { value: 'pg', label: 'PG' },
-  { value: 'hostel', label: 'Hostel' },
-  { value: 'hotel', label: 'Hotel' },
-  { value: 'guest_house', label: 'Guest house' },
-] as const;
-
-type Category = (typeof categories)[number]['value'];
 
 export default function AddPropertyScreen() {
   const router = useRouter();
   const { user, role } = useAuth();
   const [name, setName] = useState('');
-  const [category, setCategory] = useState<Category>('pg');
+  const [category, setCategory] = useState<PropertyCategory>('pg');
   const [city, setCity] = useState('');
   const [locality, setLocality] = useState('');
+  const [address, setAddress] = useState('');
+  const [description, setDescription] = useState('');
   const [rent, setRent] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -37,8 +31,14 @@ export default function AddPropertyScreen() {
     }
 
     const monthlyRent = Number(rent);
-    if (name.trim().length < 2 || city.trim().length < 2 || locality.trim().length < 2) {
-      setError('Enter the property name, city, and locality.');
+    if (
+      name.trim().length < 2 ||
+      city.trim().length < 2 ||
+      locality.trim().length < 2 ||
+      address.trim().length < 5 ||
+      description.trim().length < 10
+    ) {
+      setError('Enter the name, city, locality, address, and a short description.');
       return;
     }
     if (!Number.isFinite(monthlyRent) || monthlyRent <= 0) {
@@ -55,6 +55,8 @@ export default function AddPropertyScreen() {
       category,
       city: city.trim(),
       locality: locality.trim(),
+      address: address.trim(),
+      description: description.trim(),
       monthly_rent: monthlyRent,
       currency: 'INR',
       status: 'pending',
@@ -86,7 +88,7 @@ export default function AddPropertyScreen() {
             <AppText variant="body">The listing stays hidden until an administrator approves it.</AppText>
             <AppTextField label="Property name" value={name} onChangeText={setName} autoCapitalize="words" />
             <AppText variant="body">Category</AppText>
-            {categories.map((item) => (
+            {propertyCategories.map((item) => (
               <AppButton
                 key={item.value}
                 label={item.label}
@@ -96,6 +98,13 @@ export default function AddPropertyScreen() {
             ))}
             <AppTextField label="City" value={city} onChangeText={setCity} autoCapitalize="words" />
             <AppTextField label="Locality" value={locality} onChangeText={setLocality} autoCapitalize="words" />
+            <AppTextField label="Address" value={address} onChangeText={setAddress} autoCapitalize="sentences" />
+            <AppTextField
+              label="Description"
+              value={description}
+              onChangeText={setDescription}
+              autoCapitalize="sentences"
+            />
             <AppTextField label="Monthly rent in INR" value={rent} onChangeText={setRent} keyboardType="decimal-pad" />
             {error ? <AppText style={styles.error}>{error}</AppText> : null}
             {message ? <AppText variant="body">{message}</AppText> : null}

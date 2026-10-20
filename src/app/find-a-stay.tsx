@@ -1,69 +1,61 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { type Href, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/app-text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
+import { categoryLabel, formatMonthlyRent, type PropertyCategory } from '@/constants/property';
 import { Brand, Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 
 type Listing = {
   id: string;
   name: string;
-  category: 'pg' | 'hostel' | 'hotel' | 'guest_house';
+  category: PropertyCategory;
   city: string;
   locality: string;
   monthly_rent: number | string;
 };
 
-const categoryLabel = {
-  pg: 'PG',
-  hostel: 'Hostel',
-  hotel: 'Hotel',
-  guest_house: 'Guest house',
-} as const;
-
-function formatRent(value: number | string) {
-  const amount = Number(value);
-  if (!Number.isFinite(amount)) {
-    return 'Rent unavailable';
-  }
-  return `₹${amount.toLocaleString('en-IN')} / month`;
-}
-
 export default function FindAStayScreen() {
+  const router = useRouter();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [error, setError] = useState(supabase ? '' : 'Supabase is not connected.');
 
-  useEffect(() => {
-    if (!supabase) {
-      return;
-    }
+  useFocusEffect(
+    useCallback(() => {
+      if (!supabase) {
+        return;
+      }
 
-    let active = true;
+      let active = true;
 
-    void supabase
-      .from('properties')
-      .select('id, name, category, city, locality, monthly_rent')
-      .eq('status', 'approved')
-      .order('created_at', { ascending: false })
-      .then(({ data, error: loadError }) => {
-        if (!active) {
-          return;
-        }
-        if (loadError) {
-          setError(loadError.message);
-        } else {
-          setListings(data ?? []);
-        }
-        setLoading(false);
-      });
+      void supabase
+        .from('properties')
+        .select('id, name, category, city, locality, monthly_rent')
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false })
+        .then(({ data, error: loadError }) => {
+          if (!active) {
+            return;
+          }
+          if (loadError) {
+            setError(loadError.message);
+          } else {
+            setError('');
+            setListings(data ?? []);
+          }
+          setLoading(false);
+        });
 
-    return () => {
-      active = false;
-    };
-  }, []);
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   return (
     <Screen edges={['left', 'right', 'bottom']}>
@@ -81,13 +73,18 @@ export default function FindAStayScreen() {
           />
         ) : (
           listings.map((listing) => (
-            <View key={listing.id} style={styles.card}>
+            <Pressable
+              key={listing.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${listing.name}`}
+              onPress={() => router.push(`/property/${listing.id}` as Href)}
+              style={styles.card}>
               <AppText variant="body">{listing.name}</AppText>
               <AppText variant="body">
                 {categoryLabel[listing.category]} · {listing.locality}, {listing.city}
               </AppText>
-              <AppText variant="body">{formatRent(listing.monthly_rent)}</AppText>
-            </View>
+              <AppText variant="body">{formatMonthlyRent(listing.monthly_rent)}</AppText>
+            </Pressable>
           ))
         )}
       </View>

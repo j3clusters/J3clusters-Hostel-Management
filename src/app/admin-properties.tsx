@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/app-button';
@@ -32,34 +33,37 @@ export default function AdminPropertiesScreen() {
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!supabase || role !== 'admin') {
-      return;
-    }
+  useFocusEffect(
+    useCallback(() => {
+      if (!supabase || role !== 'admin') {
+        return;
+      }
 
-    let active = true;
+      let active = true;
 
-    void supabase
-      .from('properties')
-      .select('id, name, category, city, locality, monthly_rent')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: true })
-      .then(({ data, error: loadError }) => {
-        if (!active) {
-          return;
-        }
-        if (loadError) {
-          setError(loadError.message);
-        } else {
-          setProperties(data ?? []);
-        }
-        setLoading(false);
-      });
+      void supabase
+        .from('properties')
+        .select('id, name, category, city, locality, monthly_rent')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+        .then(({ data, error: loadError }) => {
+          if (!active) {
+            return;
+          }
+          if (loadError) {
+            setError(loadError.message);
+          } else {
+            setError('');
+            setProperties(data ?? []);
+          }
+          setLoading(false);
+        });
 
-    return () => {
-      active = false;
-    };
-  }, [role]);
+      return () => {
+        active = false;
+      };
+    }, [role]),
+  );
 
   async function review(propertyId: string, decision: 'approved' | 'rejected') {
     if (!supabase) {
