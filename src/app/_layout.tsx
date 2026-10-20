@@ -31,6 +31,8 @@ export default function RootLayout() {
         <Stack.Screen name="admin-properties" options={{ title: 'Property reviews', headerShown: true }} />
         <Stack.Screen name="add-property" options={{ title: 'Add a property', headerShown: true }} />
         <Stack.Screen name="my-properties" options={{ title: 'My properties', headerShown: true }} />
+        <Stack.Screen name="expenses" options={{ title: 'Expenses', headerShown: true }} />
+        <Stack.Screen name="maintenance" options={{ title: 'Maintenance', headerShown: true }} />
         <Stack.Screen name="property/[id]" options={{ title: 'Stay details', headerShown: true }} />
         <Stack.Screen name="saved-stays" options={{ title: 'Saved stays', headerShown: true }} />
         <Stack.Screen name="visit-list" options={{ title: 'Visit list', headerShown: true }} />

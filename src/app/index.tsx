@@ -60,9 +60,13 @@ export default function WelcomeScreen() {
             <AppButton label="Visit list" variant="secondary" onPress={() => router.push('/visit-list')} />
             <AppButton label="Enquiries" variant="secondary" onPress={() => router.push('/enquiries')} />
             <AppButton label="Booking requests" variant="secondary" onPress={() => router.push('/booking-requests')} />
+            {role === 'owner' || role === 'resident' ? (
+              <AppButton label="Maintenance" variant="secondary" onPress={() => router.push('/maintenance')} />
+            ) : null}
             {role === 'owner' ? (
               <AppButton label="My properties" onPress={() => router.push('/my-properties')} />
             ) : null}
+            {role === 'owner' ? <AppButton label="Expenses" onPress={() => router.push('/expenses')} /> : null}
             {role === 'owner' ? (
               <AppButton label="Add a property" onPress={() => router.push('/add-property')} />
             ) : null}
