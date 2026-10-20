@@ -2,11 +2,12 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { PropertyPhotoPlaceholder } from '@/components/property-photo-placeholder';
 import { AppText } from '@/components/ui/app-text';
 import { Screen } from '@/components/ui/screen';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { categoryLabel, formatMonthlyRent, isPropertyCategory } from '@/constants/property';
-import { Brand, Spacing } from '@/constants/theme';
+import { Brand, Radius, Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 
 type PropertyDetails = {
@@ -67,13 +68,18 @@ export default function PropertyDetailsScreen() {
           <AppText style={styles.error}>{error || 'This stay is not available.'}</AppText>
         ) : (
           <>
-            <AppText variant="eyebrow">{categoryLabel[property.category]}</AppText>
+            <View style={styles.hero}>
+              <PropertyPhotoPlaceholder label={property.name} />
+            </View>
+            <StatusBadge label={categoryLabel[property.category]} />
             <AppText variant="title">{property.name}</AppText>
             <AppText variant="body">
               {property.locality}, {property.city}
             </AppText>
+            <AppText variant="body" style={styles.price}>
+              {formatMonthlyRent(property.monthly_rent)}
+            </AppText>
             {property.address ? <AppText variant="body">{property.address}</AppText> : null}
-            <AppText variant="body">{formatMonthlyRent(property.monthly_rent)}</AppText>
             {property.description ? <AppText variant="body">{property.description}</AppText> : null}
             <StatusBadge label="Enquiry not available yet" />
           </>
@@ -88,6 +94,15 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'flex-start',
     gap: Spacing.three,
+  },
+  hero: {
+    width: '100%',
+    borderRadius: Radius.card,
+    overflow: 'hidden',
+  },
+  price: {
+    color: Brand.text,
+    fontWeight: '700',
   },
   error: {
     color: Brand.danger,
