@@ -26,7 +26,7 @@ export default function RootLayout() {
         }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="find-a-stay" options={{ title: 'Find a Stay', headerShown: true }} />
-        <Stack.Screen name="owner-login" options={{ title: 'Owner request', headerShown: true }} />
+        <Stack.Screen name="owner-login" options={{ title: 'Owner Login', headerShown: true }} />
         <Stack.Screen name="admin-owners" options={{ title: 'Owner requests', headerShown: true }} />
         <Stack.Screen name="admin-properties" options={{ title: 'Property reviews', headerShown: true }} />
         <Stack.Screen name="add-property" options={{ title: 'Add a property', headerShown: true }} />
