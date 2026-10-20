@@ -85,7 +85,9 @@ export default function SignInScreen() {
               <AppText variant="eyebrow">J3cluster</AppText>
               <AppText variant="title">Sign in</AppText>
               <AppText variant="body">
-                {action === 'enquiry'
+                {action === 'booking'
+                  ? 'Sign in with email to request this booking. Phone sign-in is not available yet.'
+                  : action === 'enquiry'
                   ? 'Sign in with email to send this enquiry. Phone sign-in is not available yet.'
                   : action === 'visit'
                   ? 'Sign in with email to request this visit. Phone sign-in is not available yet.'

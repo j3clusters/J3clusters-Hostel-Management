@@ -35,6 +35,7 @@ export default function RootLayout() {
         <Stack.Screen name="saved-stays" options={{ title: 'Saved stays', headerShown: true }} />
         <Stack.Screen name="visit-list" options={{ title: 'Visit list', headerShown: true }} />
         <Stack.Screen name="enquiries" options={{ title: 'Enquiries', headerShown: true }} />
+        <Stack.Screen name="booking-requests" options={{ title: 'Booking requests', headerShown: true }} />
         <Stack.Screen name="resident-profile" options={{ title: 'Resident profile', headerShown: true }} />
         <Stack.Screen name="owner-profile" options={{ title: 'Owner profile', headerShown: true }} />
         <Stack.Screen name="sign-in" options={{ title: 'Sign in', headerShown: true }} />

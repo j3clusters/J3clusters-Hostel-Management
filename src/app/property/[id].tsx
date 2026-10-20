@@ -12,6 +12,7 @@ import { Screen } from '@/components/ui/screen';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { categoryLabel, formatMonthlyRent, isPropertyCategory } from '@/constants/property';
 import { Brand, Radius, Spacing } from '@/constants/theme';
+import { isBookingStatus, requestBooking, bookingStatusLabel, type BookingStatus } from '@/lib/booking-requests';
 import {
   clearPendingEnquiryMessage,
   peekPendingEnquiryMessage,
@@ -51,6 +52,8 @@ export default function PropertyDetailsScreen() {
   const [saving, setSaving] = useState(false);
   const [visitStatus, setVisitStatus] = useState<VisitStatus | null>(null);
   const [requestingVisit, setRequestingVisit] = useState(false);
+  const [bookingStatus, setBookingStatus] = useState<BookingStatus | null>(null);
+  const [requestingBooking, setRequestingBooking] = useState(false);
   const [enquiryOpen, setEnquiryOpen] = useState(false);
   const [enquiryMessage, setEnquiryMessage] = useState('');
   const [sendingEnquiry, setSendingEnquiry] = useState(false);
@@ -165,7 +168,32 @@ export default function PropertyDetailsScreen() {
   }, [propertyId, user]);
 
   useEffect(() => {
-    if (!user || !propertyId || (action !== 'save' && action !== 'visit' && action !== 'enquiry')) {
+    if (!supabase || !user || !propertyId) {
+      return;
+    }
+
+    let active = true;
+    void supabase
+      .from('booking_requests')
+      .select('status')
+      .eq('user_id', user.id)
+      .eq('property_id', propertyId)
+      .in('status', ['requested', 'confirmed'])
+      .maybeSingle()
+      .then(({ data, error: loadError }) => {
+        if (!active || loadError || !data || !isBookingStatus(data.status)) {
+          return;
+        }
+        setBookingStatus(data.status);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [propertyId, user]);
+
+  useEffect(() => {
+    if (!user || !propertyId || (action !== 'save' && action !== 'visit' && action !== 'enquiry' && action !== 'booking')) {
       return;
     }
 
@@ -190,9 +218,13 @@ export default function PropertyDetailsScreen() {
         ? saveApprovedStay(user.id, propertyId)
         : action === 'visit'
           ? requestVisit(user.id, propertyId)
-          : sendEnquiry(user.id, propertyId, enquiryMessageToSend);
+          : action === 'booking'
+            ? requestBooking(user.id, propertyId)
+            : sendEnquiry(user.id, propertyId, enquiryMessageToSend);
     void pending.then((actionError) => {
-      const alreadySent = actionError === 'You already have an open enquiry for this stay.';
+      const alreadySent =
+        actionError === 'You already have an open enquiry for this stay.' ||
+        actionError === 'You already have a booking request for this stay.';
       if (actionError && !alreadySent) {
         completedAction.current = '';
         setEnquiryMessage(enquiryMessageToSend);
@@ -203,6 +235,8 @@ export default function PropertyDetailsScreen() {
         setSaved(true);
       } else if (action === 'visit') {
         setVisitStatus('requested');
+      } else if (action === 'booking') {
+        setBookingStatus('requested');
       } else {
         clearPendingEnquiryMessage();
         setEnquiryMessage('');
@@ -257,6 +291,28 @@ export default function PropertyDetailsScreen() {
     }
 
     setVisitStatus('requested');
+  }
+
+  async function askForBooking() {
+    if (!propertyId || bookingStatus) {
+      return;
+    }
+    if (!user) {
+      setPromptAction('booking');
+      return;
+    }
+
+    setRequestingBooking(true);
+    setError('');
+    const bookingError = await requestBooking(user.id, propertyId);
+    setRequestingBooking(false);
+
+    if (bookingError && bookingError !== 'You already have a booking request for this stay.') {
+      setError(bookingError);
+      return;
+    }
+
+    setBookingStatus('requested');
   }
 
   async function submitEnquiry() {
@@ -341,7 +397,18 @@ export default function PropertyDetailsScreen() {
                 />
               </>
             )}
-            <AppText variant="body">An enquiry is not a booking or a visit request.</AppText>
+            {bookingStatus ? (
+              <StatusBadge label={`Booking ${bookingStatusLabel[bookingStatus]}`} />
+            ) : (
+              <AppButton
+                label={requestingBooking ? 'Requesting...' : 'Request a booking'}
+                disabled={requestingBooking}
+                onPress={() => void askForBooking()}
+              />
+            )}
+            <AppText variant="body">
+              A booking request does not take payment or reserve a room. It is separate from a visit or an enquiry.
+            </AppText>
             {error ? <AppText style={styles.error}>{error}</AppText> : null}
           </>
         )}
