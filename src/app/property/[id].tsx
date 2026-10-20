@@ -7,10 +7,17 @@ import { SaveStayButton } from '@/components/save-stay-button';
 import { SaveStayPrompt } from '@/components/save-stay-prompt';
 import { AppButton } from '@/components/ui/app-button';
 import { AppText } from '@/components/ui/app-text';
+import { AppTextField } from '@/components/ui/app-text-field';
 import { Screen } from '@/components/ui/screen';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { categoryLabel, formatMonthlyRent, isPropertyCategory } from '@/constants/property';
 import { Brand, Radius, Spacing } from '@/constants/theme';
+import {
+  clearPendingEnquiryMessage,
+  peekPendingEnquiryMessage,
+  sendEnquiry,
+  setPendingEnquiryMessage,
+} from '@/lib/enquiries';
 import { isVisitStatus, requestVisit, visitStatusLabel, type VisitStatus } from '@/lib/property-visits';
 import { removeSavedStay, saveApprovedStay } from '@/lib/saved-stays';
 import { type StayAction } from '@/lib/stay-action';
@@ -43,6 +50,9 @@ export default function PropertyDetailsScreen() {
   const [saving, setSaving] = useState(false);
   const [visitStatus, setVisitStatus] = useState<VisitStatus | null>(null);
   const [requestingVisit, setRequestingVisit] = useState(false);
+  const [enquiryOpen, setEnquiryOpen] = useState(false);
+  const [enquiryMessage, setEnquiryMessage] = useState('');
+  const [sendingEnquiry, setSendingEnquiry] = useState(false);
   const [promptAction, setPromptAction] = useState<StayAction | null>(null);
   const [error, setError] = useState(propertyId ? '' : 'This stay could not be opened.');
   const completedAction = useRef('');
@@ -129,7 +139,32 @@ export default function PropertyDetailsScreen() {
   }, [propertyId, user]);
 
   useEffect(() => {
-    if (!user || !propertyId || (action !== 'save' && action !== 'visit')) {
+    if (!supabase || !user || !propertyId) {
+      return;
+    }
+
+    let active = true;
+    void supabase
+      .from('enquiries')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('property_id', propertyId)
+      .eq('status', 'open')
+      .maybeSingle()
+      .then(({ data, error: loadError }) => {
+        if (!active || loadError) {
+          return;
+        }
+        setEnquiryOpen(Boolean(data));
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [propertyId, user]);
+
+  useEffect(() => {
+    if (!user || !propertyId || (action !== 'save' && action !== 'visit' && action !== 'enquiry')) {
       return;
     }
 
@@ -139,17 +174,38 @@ export default function PropertyDetailsScreen() {
     }
     completedAction.current = key;
 
-    const pending = action === 'save' ? saveApprovedStay(user.id, propertyId) : requestVisit(user.id, propertyId);
+    const enquiryMessageToSend = action === 'enquiry' ? peekPendingEnquiryMessage() : '';
+    if (action === 'enquiry' && enquiryMessageToSend.length < 10) {
+      completedAction.current = '';
+      router.setParams({ action: '' });
+      void Promise.resolve().then(() => {
+        setError('Enter your enquiry again.');
+      });
+      return;
+    }
+
+    const pending =
+      action === 'save'
+        ? saveApprovedStay(user.id, propertyId)
+        : action === 'visit'
+          ? requestVisit(user.id, propertyId)
+          : sendEnquiry(user.id, propertyId, enquiryMessageToSend);
     void pending.then((actionError) => {
-      if (actionError) {
+      const alreadySent = actionError === 'You already have an open enquiry for this stay.';
+      if (actionError && !alreadySent) {
         completedAction.current = '';
+        setEnquiryMessage(enquiryMessageToSend);
         setError(actionError);
         return;
       }
       if (action === 'save') {
         setSaved(true);
-      } else {
+      } else if (action === 'visit') {
         setVisitStatus('requested');
+      } else {
+        clearPendingEnquiryMessage();
+        setEnquiryMessage('');
+        setEnquiryOpen(true);
       }
       router.setParams({ action: '' });
     });
@@ -202,6 +258,36 @@ export default function PropertyDetailsScreen() {
     setVisitStatus('requested');
   }
 
+  async function submitEnquiry() {
+    if (!propertyId || enquiryOpen) {
+      return;
+    }
+
+    const message = enquiryMessage.trim();
+    if (message.length < 10) {
+      setError('Write an enquiry of at least 10 characters.');
+      return;
+    }
+    if (!user) {
+      setPendingEnquiryMessage(message);
+      setPromptAction('enquiry');
+      return;
+    }
+
+    setSendingEnquiry(true);
+    setError('');
+    const enquiryError = await sendEnquiry(user.id, propertyId, message);
+    setSendingEnquiry(false);
+
+    if (enquiryError && enquiryError !== 'You already have an open enquiry for this stay.') {
+      setError(enquiryError);
+      return;
+    }
+
+    setEnquiryMessage('');
+    setEnquiryOpen(true);
+  }
+
   return (
     <Screen edges={['left', 'right', 'bottom']}>
       <View style={styles.content}>
@@ -236,13 +322,36 @@ export default function PropertyDetailsScreen() {
                 onPress={() => void askForVisit()}
               />
             )}
-            <AppText variant="body">A visit request is not a booking. Enquiries are not available yet.</AppText>
+            {enquiryOpen ? (
+              <StatusBadge label="Enquiry sent" />
+            ) : (
+              <>
+                <AppTextField
+                  label="Enquiry"
+                  value={enquiryMessage}
+                  onChangeText={setEnquiryMessage}
+                  autoCapitalize="sentences"
+                  multiline
+                />
+                <AppButton
+                  label={sendingEnquiry ? 'Sending...' : 'Send enquiry'}
+                  disabled={sendingEnquiry}
+                  onPress={() => void submitEnquiry()}
+                />
+              </>
+            )}
+            <AppText variant="body">An enquiry is not a booking or a visit request.</AppText>
             {error ? <AppText style={styles.error}>{error}</AppText> : null}
           </>
         )}
         <SaveStayPrompt
           visible={promptAction !== null}
-          onLater={() => setPromptAction(null)}
+          onLater={() => {
+            if (promptAction === 'enquiry') {
+              clearPendingEnquiryMessage();
+            }
+            setPromptAction(null);
+          }}
           onContinueWithEmail={() => {
             const nextAction = promptAction;
             setPromptAction(null);

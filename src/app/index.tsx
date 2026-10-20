@@ -53,6 +53,7 @@ export default function WelcomeScreen() {
             </AppText>
             <AppButton label="Saved stays" variant="secondary" onPress={() => router.push('/saved-stays')} />
             <AppButton label="Visit list" variant="secondary" onPress={() => router.push('/visit-list')} />
+            <AppButton label="Enquiries" variant="secondary" onPress={() => router.push('/enquiries')} />
             {role === 'owner' ? (
               <AppButton label="Add a property" onPress={() => router.push('/add-property')} />
             ) : null}

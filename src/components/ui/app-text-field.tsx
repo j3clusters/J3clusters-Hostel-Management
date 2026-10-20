@@ -11,6 +11,7 @@ type Props = {
   autoCapitalize?: TextInputProps['autoCapitalize'];
   autoComplete?: TextInputProps['autoComplete'];
   textContentType?: TextInputProps['textContentType'];
+  multiline?: boolean;
 };
 
 export function AppTextField({
@@ -22,6 +23,7 @@ export function AppTextField({
   autoCapitalize = 'none',
   autoComplete,
   textContentType,
+  multiline = false,
 }: Props) {
   return (
     <View style={styles.field}>
@@ -37,7 +39,9 @@ export function AppTextField({
         autoComplete={autoComplete}
         textContentType={textContentType}
         placeholderTextColor={Brand.muted}
-        style={styles.input}
+        multiline={multiline}
+        textAlignVertical={multiline ? 'top' : 'center'}
+        style={[styles.input, multiline && styles.multiline]}
       />
     </View>
   );
@@ -64,5 +68,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     minHeight: 52,
     paddingVertical: 14,
+  },
+  multiline: {
+    minHeight: 120,
   },
 });
