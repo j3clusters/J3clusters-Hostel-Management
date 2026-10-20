@@ -45,6 +45,8 @@ export default function AdminReportsScreen() {
 
   const rows = report
     ? [
+        { label: 'Visits today', value: String(report.visitsToday) },
+        { label: 'Arrivals today', value: String(report.arrivalsToday) },
         { label: 'Pending owner requests', value: String(report.pendingOwnerRequests) },
         { label: 'Pending properties', value: String(report.pendingProperties) },
         { label: 'Occupied beds', value: String(report.occupiedBeds) },
@@ -60,7 +62,7 @@ export default function AdminReportsScreen() {
       <View style={styles.content}>
         <AppText variant="eyebrow">J3cluster</AppText>
         <AppText variant="title">Reports</AppText>
-        <AppText variant="body">Counts only. Resident names and phone numbers are not shown.</AppText>
+        <AppText variant="body">Counts only. Today follows India time. Resident names and phone numbers are not shown.</AppText>
         {role !== 'admin' ? (
           <AppText variant="body">Reports are for an administrator.</AppText>
         ) : loading ? (

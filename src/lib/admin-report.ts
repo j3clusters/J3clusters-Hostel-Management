@@ -8,6 +8,8 @@ export type AdminReport = {
   waitingLeave: number;
   rentDueCount: number;
   rentDueAmount: number;
+  visitsToday: number;
+  arrivalsToday: number;
 };
 
 export function reportAmount(amount: number) {
@@ -39,6 +41,8 @@ export async function loadAdminReport(): Promise<{ error: string; report: AdminR
       waitingLeave: numberValue(row.waiting_leave),
       rentDueCount: numberValue(row.rent_due_count),
       rentDueAmount: numberValue(row.rent_due_amount),
+      visitsToday: numberValue(row.visits_today),
+      arrivalsToday: numberValue(row.arrivals_today),
     },
   };
 }
