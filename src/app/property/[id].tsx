@@ -12,7 +12,7 @@ import { Screen } from '@/components/ui/screen';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { categoryLabel, formatMonthlyRent, isPropertyCategory } from '@/constants/property';
 import { isSharingType, sharingLabel } from '@/constants/rooms';
-import { Brand, Radius, Spacing } from '@/constants/theme';
+import { Brand, Radius, Shadow, Spacing } from '@/constants/theme';
 import {
   clearPendingMoveIn,
   isBookingStatus,
@@ -481,7 +481,7 @@ export default function PropertyDetailsScreen() {
     <Screen edges={['left', 'right', 'bottom']}>
       <View style={styles.content}>
         {loading ? (
-          <AppText variant="body">Loading stay...</AppText>
+          <View style={styles.skeleton} />
         ) : !property || !isPropertyCategory(property.category) ? (
           <AppText style={styles.error}>{error || 'This stay is not available.'}</AppText>
         ) : (
@@ -492,66 +492,72 @@ export default function PropertyDetailsScreen() {
                 <SaveStayButton saved={Boolean(user) && saved} disabled={saving} onPress={() => void toggleSave()} />
               </View>
             </View>
-            <StatusBadge label={categoryLabel[property.category]} />
-            <AppText variant="title">{property.name}</AppText>
-            <AppText variant="body">
-              {property.locality}, {property.city}
-            </AppText>
-            <AppText variant="body" style={styles.price}>
-              {formatMonthlyRent(property.monthly_rent)}
-            </AppText>
-            {bedSummary.length === 0 ? (
-              <AppText variant="body">Rooms have not been added yet.</AppText>
-            ) : (
-              bedSummary.map((room, index) => (
-                <AppText key={`${room.roomName}-${index}`} variant="body">
-                  {room.roomName} · {room.sharing} · {room.available} of {room.total} beds available
-                </AppText>
-              ))
-            )}
-            {property.address ? <AppText variant="body">{property.address}</AppText> : null}
-            {property.description ? <AppText variant="body">{property.description}</AppText> : null}
-            {property.house_rules ? (
-              <>
-                <AppText variant="body" style={styles.price}>
-                  House rules
-                </AppText>
-                <AppText variant="body">{property.house_rules}</AppText>
-              </>
-            ) : null}
-            <AppText variant="body" style={styles.price}>
-              Stay reviews
-            </AppText>
-            {reviewLabel ? <AppText variant="body">{reviewLabel}</AppText> : null}
-            {reviews.length === 0 ? (
-              <AppText variant="body">No stay reviews yet.</AppText>
-            ) : (
-              reviews.map((review) => (
-                <View key={`${review.createdAt}-${review.note}`} style={styles.review}>
-                  <AppText variant="body" style={styles.price}>
-                    {ratingLabel(review.rating)}
+            <View style={styles.summary}>
+              <StatusBadge label={categoryLabel[property.category]} />
+              <AppText variant="title">{property.name}</AppText>
+              <AppText variant="body">
+                {property.locality}, {property.city}
+              </AppText>
+              {property.address ? <AppText variant="body">{property.address}</AppText> : null}
+              <AppText variant="section" style={styles.price}>
+                {formatMonthlyRent(property.monthly_rent)}
+              </AppText>
+              {reviewLabel ? <AppText variant="body">{reviewLabel}</AppText> : null}
+            </View>
+            <View style={styles.section}>
+              <AppText variant="section">Beds</AppText>
+              {bedSummary.length === 0 ? (
+                <AppText variant="body">Rooms have not been added yet.</AppText>
+              ) : (
+                bedSummary.map((room, index) => (
+                  <AppText key={`${room.roomName}-${index}`} variant="body">
+                    {room.roomName} · {room.sharing} · {room.available} of {room.total} beds available
                   </AppText>
-                  <AppText variant="body">{review.note}</AppText>
-                  <AppText variant="body">{stayReviewDateLabel(review.createdAt)}</AppText>
-                  {review.ownerReply ? (
-                    <>
-                      <AppText variant="body" style={styles.price}>
-                        Owner reply
-                      </AppText>
-                      <AppText variant="body">{review.ownerReply}</AppText>
-                      {review.repliedAt ? <AppText variant="body">{stayReviewDateLabel(review.repliedAt)}</AppText> : null}
-                    </>
-                  ) : null}
-                </View>
-              ))
-            )}
+                ))
+              )}
+            </View>
+            {property.description ? (
+              <View style={styles.section}>
+                <AppText variant="section">About this stay</AppText>
+                <AppText variant="body">{property.description}</AppText>
+              </View>
+            ) : null}
+            {property.house_rules ? (
+              <View style={styles.section}>
+                <AppText variant="section">House rules</AppText>
+                <AppText variant="body">{property.house_rules}</AppText>
+              </View>
+            ) : null}
+            <View style={styles.section}>
+              <AppText variant="section">Stay reviews</AppText>
+              {reviews.length === 0 ? (
+                <AppText variant="body">No stay reviews yet.</AppText>
+              ) : (
+                reviews.map((review) => (
+                  <View key={`${review.createdAt}-${review.note}`} style={styles.review}>
+                    <AppText variant="body" style={styles.emphasis}>
+                      {ratingLabel(review.rating)}
+                    </AppText>
+                    <AppText variant="body">{review.note}</AppText>
+                    <AppText variant="caption">{stayReviewDateLabel(review.createdAt)}</AppText>
+                    {review.ownerReply ? (
+                      <View style={styles.reply}>
+                        <AppText variant="body" style={styles.emphasis}>
+                          Owner reply
+                        </AppText>
+                        <AppText variant="body">{review.ownerReply}</AppText>
+                        {review.repliedAt ? <AppText variant="caption">{stayReviewDateLabel(review.repliedAt)}</AppText> : null}
+                      </View>
+                    ) : null}
+                  </View>
+                ))
+              )}
+            </View>
             {visitStatus ? (
               <StatusBadge label={`Visit ${visitStatusLabel[visitStatus]}`} />
             ) : (
-              <>
-                <AppText variant="body" style={styles.price}>
-                  Visit date
-                </AppText>
+              <View style={styles.section}>
+                <AppText variant="section">Visit date</AppText>
                 <View style={styles.choices}>
                   {leaveDateChoices(kolkataToday(), 14).map((item) => (
                     <Pressable
@@ -585,12 +591,13 @@ export default function PropertyDetailsScreen() {
                   disabled={requestingVisit}
                   onPress={() => void askForVisit()}
                 />
-              </>
+              </View>
             )}
             {enquiryOpen ? (
               <StatusBadge label="Enquiry sent" />
             ) : (
-              <>
+              <View style={styles.section}>
+                <AppText variant="section">Enquiry</AppText>
                 <AppTextField
                   label="Enquiry"
                   value={enquiryMessage}
@@ -603,15 +610,13 @@ export default function PropertyDetailsScreen() {
                   disabled={sendingEnquiry}
                   onPress={() => void submitEnquiry()}
                 />
-              </>
+              </View>
             )}
             {bookingStatus ? (
               <StatusBadge label={`Booking ${bookingStatusLabel[bookingStatus]}`} />
             ) : (
-              <>
-                <AppText variant="body" style={styles.price}>
-                  Move-in date
-                </AppText>
+              <View style={styles.section}>
+                <AppText variant="section">Move-in date</AppText>
                 <View style={styles.choices}>
                   {leaveDateChoices(kolkataToday(), 14).map((item) => (
                     <Pressable
@@ -645,7 +650,7 @@ export default function PropertyDetailsScreen() {
                   disabled={requestingBooking}
                   onPress={() => void askForBooking()}
                 />
-              </>
+              </View>
             )}
             <AppText variant="body">
               Choose a move-in date and time of day. A booking request does not take payment. Check-in keeps the confirmed bed until check-out.
@@ -690,19 +695,52 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: Radius.card,
     overflow: 'hidden',
+    backgroundColor: Brand.white,
+    ...Shadow.card,
   },
   save: {
     position: 'absolute',
     top: Spacing.two,
     right: Spacing.two,
   },
+  summary: {
+    width: '100%',
+    gap: Spacing.two,
+  },
+  section: {
+    width: '100%',
+    gap: Spacing.two,
+    backgroundColor: Brand.white,
+    borderColor: Brand.border,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    padding: Spacing.three,
+  },
   price: {
+    color: Brand.text,
+    fontSize: 26,
+    lineHeight: 32,
+  },
+  emphasis: {
     color: Brand.text,
     fontWeight: '700',
   },
   review: {
     width: '100%',
     gap: Spacing.two,
+  },
+  reply: {
+    width: '100%',
+    gap: Spacing.one,
+    backgroundColor: Brand.primarySoft,
+    borderRadius: Radius.input,
+    padding: Spacing.three,
+  },
+  skeleton: {
+    width: '100%',
+    height: 280,
+    borderRadius: Radius.card,
+    backgroundColor: Brand.border,
   },
   error: {
     color: Brand.danger,
@@ -714,7 +752,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   choice: {
-    minHeight: 40,
+    minHeight: 44,
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
     borderRadius: Radius.button,
