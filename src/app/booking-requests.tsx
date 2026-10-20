@@ -17,6 +17,7 @@ import {
   updateBookingRequest,
   type BookingStatus,
 } from '@/lib/booking-requests';
+import { currentRentMonth, recordRentCharge, rentChargeLabel, type RentCharge } from '@/lib/rent-charges';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -45,6 +46,7 @@ export default function BookingRequestsScreen() {
   const [incoming, setIncoming] = useState<BookingItem[]>([]);
   const [beds, setBeds] = useState<{ id: string; propertyId: string; roomName: string; label: string }[]>([]);
   const [takenBedIds, setTakenBedIds] = useState<string[]>([]);
+  const [charges, setCharges] = useState<RentCharge[]>([]);
   const [loading, setLoading] = useState(Boolean(user));
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState(user ? '' : 'Sign in to see booking requests.');
@@ -130,6 +132,48 @@ export default function BookingRequestsScreen() {
     }, [role, user]),
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!supabase || !user) {
+        return;
+      }
+
+      let active = true;
+      void supabase
+        .from('rent_charges')
+        .select('id, booking_request_id, amount, period_month')
+        .order('period_month', { ascending: false })
+        .then(({ data, error: loadError }) => {
+          if (!active) {
+            return;
+          }
+          if (loadError) {
+            setError(loadError.message);
+            return;
+          }
+          setCharges(
+            (data ?? []).flatMap((row) => {
+              if (typeof row.id !== 'string' || typeof row.booking_request_id !== 'string' || typeof row.period_month !== 'string') {
+                return [];
+              }
+              return [
+                {
+                  id: row.id,
+                  bookingRequestId: row.booking_request_id,
+                  amount: row.amount,
+                  periodMonth: row.period_month,
+                },
+              ];
+            }),
+          );
+        });
+
+      return () => {
+        active = false;
+      };
+    }, [user]),
+  );
+
   async function confirmRequest(requestId: string, bedId: string) {
     if (busyId) {
       return;
@@ -209,6 +253,24 @@ export default function BookingRequestsScreen() {
     }
   }
 
+  async function recordRent(requestId: string) {
+    if (busyId) {
+      return;
+    }
+
+    setBusyId(requestId);
+    setError('');
+    const result = await recordRentCharge(requestId);
+    setBusyId(null);
+
+    if (result.error || !result.charge) {
+      setError(result.error || 'Rent could not be recorded.');
+      return;
+    }
+
+    setCharges((current) => [result.charge as RentCharge, ...current]);
+  }
+
   async function changeStatus(requestId: string, status: 'rejected' | 'cancelled', list: 'mine' | 'incoming') {
     if (busyId) {
       return;
@@ -243,7 +305,9 @@ export default function BookingRequestsScreen() {
       <View style={styles.content}>
         <AppText variant="eyebrow">J3cluster</AppText>
         <AppText variant="title">Booking requests</AppText>
-        <AppText variant="body">A request does not take payment. Check-in keeps the confirmed bed. Check-out frees it.</AppText>
+        <AppText variant="body">
+          A request does not take payment. Check-in keeps the confirmed bed. Check-out frees it. Recorded rent stays due.
+        </AppText>
         {loading ? (
           <View style={styles.skeleton} />
         ) : error ? (
@@ -266,6 +330,7 @@ export default function BookingRequestsScreen() {
                     request.status === 'requested' ? () => void changeStatus(request.id, 'cancelled', 'mine') : undefined
                   }
                   onCheckOut={request.status === 'checked_in' ? () => void checkOut(request.id, 'mine') : undefined}
+                  rentLabels={charges.filter((charge) => charge.bookingRequestId === request.id).map(rentChargeLabel)}
                 />
               ))
             )}
@@ -296,6 +361,16 @@ export default function BookingRequestsScreen() {
                       onCheckOut={request.status === 'checked_in' ? () => void checkOut(request.id, 'incoming') : undefined}
                       onCancelConfirmation={
                         request.status === 'confirmed' ? () => void changeStatus(request.id, 'cancelled', 'incoming') : undefined
+                      }
+                      rentLabels={charges.filter((charge) => charge.bookingRequestId === request.id).map(rentChargeLabel)}
+                      onRecordRent={
+                        request.status === 'checked_in' &&
+                        !charges.some(
+                          (charge) =>
+                            charge.bookingRequestId === request.id && charge.periodMonth.slice(0, 7) === currentRentMonth().slice(0, 7),
+                        )
+                          ? () => void recordRent(request.id)
+                          : undefined
                       }
                     />
                   ))
@@ -364,6 +439,8 @@ function BookingCard({
   onCheckIn,
   onCheckOut,
   onCancelConfirmation,
+  onRecordRent,
+  rentLabels = [],
   onReject,
   onCancel,
 }: {
@@ -375,6 +452,8 @@ function BookingCard({
   onCheckIn?: () => void;
   onCheckOut?: () => void;
   onCancelConfirmation?: () => void;
+  onRecordRent?: () => void;
+  rentLabels?: string[];
   onReject?: () => void;
   onCancel?: () => void;
 }) {
@@ -388,6 +467,11 @@ function BookingCard({
         {request.locality}, {request.city}
       </AppText>
       {request.bedLabel ? <AppText variant="body">{request.bedLabel}</AppText> : null}
+      {rentLabels.map((label) => (
+        <AppText key={label} variant="body">
+          {label}
+        </AppText>
+      ))}
       {request.status === 'confirmed' && !onCheckIn ? (
         <AppText variant="body">Waiting for the owner to check you in.</AppText>
       ) : null}
@@ -407,6 +491,9 @@ function BookingCard({
         : null}
       {onCheckIn ? <AppButton label={busy ? 'Saving...' : 'Check in'} disabled={busy} onPress={onCheckIn} /> : null}
       {onCheckOut ? <AppButton label={busy ? 'Saving...' : 'Check out'} disabled={busy} onPress={onCheckOut} /> : null}
+      {onRecordRent ? (
+        <AppButton label={busy ? 'Saving...' : "Record this month's rent"} disabled={busy} onPress={onRecordRent} />
+      ) : null}
       {onCancelConfirmation ? (
         <AppButton label="Cancel confirmation" variant="secondary" disabled={busy} onPress={onCancelConfirmation} />
       ) : null}
