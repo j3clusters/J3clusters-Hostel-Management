@@ -7,7 +7,7 @@ import { AppText } from '@/components/ui/app-text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { Brand, Radius, Spacing } from '@/constants/theme';
+import { Brand, Radius, Shadow, Spacing } from '@/constants/theme';
 import { kolkataToday, leaveDateChoices, leaveDateLabel } from '@/lib/leave-requests';
 import { isVisitPart, isVisitStatus, rescheduleVisit, updateVisit, visitPartLabel, visitStatusLabel, type VisitPart, type VisitStatus } from '@/lib/property-visits';
 import { supabase } from '@/lib/supabase';
@@ -157,9 +157,7 @@ export default function VisitListScreen() {
           <AppText style={styles.error}>{error}</AppText>
         ) : (
           <>
-            <AppText variant="body" style={styles.heading}>
-              Your requests
-            </AppText>
+            <AppText variant="section">Your requests</AppText>
             {mine.length === 0 ? (
               <EmptyState illustration="activity" title="No visit requests" message="Open a stay and choose Request a visit." />
             ) : (
@@ -192,9 +190,7 @@ export default function VisitListScreen() {
             )}
             {role === 'owner' ? (
               <>
-                <AppText variant="body" style={styles.heading}>
-                  Requests for your properties
-                </AppText>
+                <AppText variant="section">Requests for your properties</AppText>
                 {incoming.length === 0 ? (
                   <EmptyState title="No incoming requests" message="Requests from residents will appear here." />
                 ) : (
@@ -242,6 +238,19 @@ export default function VisitListScreen() {
       </View>
     </Screen>
   );
+}
+
+function visitTone(status: VisitStatus) {
+  if (status === 'completed') {
+    return 'success' as const;
+  }
+  if (status === 'cancelled') {
+    return 'danger' as const;
+  }
+  if (status === 'confirmed') {
+    return 'info' as const;
+  }
+  return 'warning' as const;
 }
 
 function toVisitItems(
@@ -303,18 +312,20 @@ function VisitCard({
 }) {
   return (
     <View style={styles.card}>
-      <StatusBadge label={visitStatusLabel[visit.status]} />
-      <AppText variant="body" style={styles.name}>
+      <StatusBadge label={visitStatusLabel[visit.status]} tone={visitTone(visit.status)} />
+      <AppText variant="section" numberOfLines={2}>
         {visit.name}
       </AppText>
       <AppText variant="body">
         {visit.locality}, {visit.city}
       </AppText>
       {visit.visitOn ? (
-        <AppText variant="body">
-          {leaveDateLabel(visit.visitOn)}
-          {visit.visitPart ? ` · ${visitPartLabel(visit.visitPart)}` : ''}
-        </AppText>
+        <View style={styles.when}>
+          <AppText variant="body" style={styles.whenLabel}>
+            {leaveDateLabel(visit.visitOn)}
+            {visit.visitPart ? ` · ${visitPartLabel(visit.visitPart)}` : ''}
+          </AppText>
+        </View>
       ) : null}
       <AppButton label="View stay" variant="secondary" onPress={onOpen} />
       {onConfirm ? <AppButton label={busy ? 'Saving...' : 'Confirm visit'} disabled={busy} onPress={onConfirm} /> : null}
@@ -354,10 +365,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: Spacing.three,
   },
-  heading: {
-    color: Brand.text,
-    fontWeight: '800',
-  },
   card: {
     width: '100%',
     gap: Spacing.two,
@@ -366,10 +373,18 @@ const styles = StyleSheet.create({
     borderRadius: Radius.card,
     borderWidth: 1,
     padding: Spacing.three,
+    ...Shadow.card,
   },
-  name: {
+  when: {
+    alignSelf: 'flex-start',
+    backgroundColor: Brand.surface,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  whenLabel: {
     color: Brand.text,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   choices: {
     width: '100%',
@@ -378,7 +393,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   choice: {
-    minHeight: 40,
+    minHeight: 44,
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
     borderRadius: Radius.button,

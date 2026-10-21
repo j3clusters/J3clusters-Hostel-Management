@@ -8,7 +8,7 @@ import { AppTextField } from '@/components/ui/app-text-field';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { Brand, Radius, Spacing } from '@/constants/theme';
+import { Brand, Radius, Shadow, Spacing } from '@/constants/theme';
 import {
   bookingStatusLabel,
   checkInBooking,
@@ -492,9 +492,7 @@ export default function BookingRequestsScreen() {
           <AppText style={styles.error}>{error}</AppText>
         ) : (
           <>
-            <AppText variant="body" style={styles.heading}>
-              Your requests
-            </AppText>
+            <AppText variant="section">Your requests</AppText>
             {mine.length === 0 ? (
               <EmptyState illustration="activity" title="No booking requests" message="Open a stay and choose Request a booking." />
             ) : (
@@ -515,9 +513,7 @@ export default function BookingRequestsScreen() {
             )}
             {role === 'owner' ? (
               <>
-                <AppText variant="body" style={styles.heading}>
-                  Requests for your properties
-                </AppText>
+                <AppText variant="section">Requests for your properties</AppText>
                 {incoming.length === 0 ? (
                   <EmptyState title="No incoming requests" message="Booking requests from residents will appear here." />
                 ) : (
@@ -581,6 +577,19 @@ export default function BookingRequestsScreen() {
       </View>
     </Screen>
   );
+}
+
+function bookingTone(status: BookingStatus) {
+  if (status === 'checked_out') {
+    return 'success' as const;
+  }
+  if (status === 'cancelled' || status === 'rejected') {
+    return 'danger' as const;
+  }
+  if (status === 'confirmed' || status === 'checked_in') {
+    return 'info' as const;
+  }
+  return 'warning' as const;
 }
 
 function toBookingItems(
@@ -680,19 +689,27 @@ function BookingCard({
 }) {
   return (
     <View style={styles.card}>
-      <StatusBadge label={bookingStatusLabel[request.status]} />
-      <AppText variant="body" style={styles.name}>
+      <StatusBadge label={bookingStatusLabel[request.status]} tone={bookingTone(request.status)} />
+      <AppText variant="section" numberOfLines={2}>
         {request.name}
       </AppText>
       <AppText variant="body">
         {request.locality}, {request.city}
       </AppText>
-      {request.bedLabel ? <AppText variant="body">{request.bedLabel}</AppText> : null}
+      {request.bedLabel ? (
+        <View style={styles.when}>
+          <AppText variant="body" style={styles.whenLabel}>
+            {request.bedLabel}
+          </AppText>
+        </View>
+      ) : null}
       {request.moveIn ? (
-        <AppText variant="body">
-          Move-in {moveInLabel(request.moveIn)}
-          {request.moveInPart ? ` · ${visitPartLabel(request.moveInPart)}` : ''}
-        </AppText>
+        <View style={styles.when}>
+          <AppText variant="body" style={styles.whenLabel}>
+            Move-in {moveInLabel(request.moveIn)}
+            {request.moveInPart ? ` · ${visitPartLabel(request.moveInPart)}` : ''}
+          </AppText>
+        </View>
       ) : null}
       {rentCharges.map((charge) => (
         <View key={charge.id} style={styles.rent}>
@@ -781,10 +798,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: Spacing.three,
   },
-  heading: {
-    color: Brand.text,
-    fontWeight: '800',
-  },
   card: {
     width: '100%',
     gap: Spacing.two,
@@ -793,14 +806,25 @@ const styles = StyleSheet.create({
     borderRadius: Radius.card,
     borderWidth: 1,
     padding: Spacing.three,
+    ...Shadow.card,
   },
-  name: {
+  when: {
+    alignSelf: 'flex-start',
+    backgroundColor: Brand.surface,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  whenLabel: {
     color: Brand.text,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   rent: {
     width: '100%',
     gap: Spacing.two,
+    backgroundColor: Brand.surface,
+    borderRadius: Radius.input,
+    padding: Spacing.three,
   },
   skeleton: {
     width: '100%',
