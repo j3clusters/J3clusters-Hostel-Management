@@ -1,14 +1,15 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { SuccessIllustration } from '@/components/illustrations/brand-illustrations';
 import { AppButton } from '@/components/ui/app-button';
 import { AppText } from '@/components/ui/app-text';
 import { AppTextField } from '@/components/ui/app-text-field';
 import { Screen } from '@/components/ui/screen';
 import { propertyCategories, type PropertyCategory } from '@/constants/property';
-import { Brand, Spacing } from '@/constants/theme';
+import { Brand, Radius, Shadow, Spacing } from '@/constants/theme';
 import { uploadPropertyCover } from '@/lib/property-photos';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
@@ -133,41 +134,71 @@ export default function AddPropertyScreen() {
           </>
         ) : (
           <>
-            <AppText variant="body">The listing stays hidden until an administrator approves it.</AppText>
-            <AppTextField label="Property name" value={name} onChangeText={setName} autoCapitalize="words" />
-            <AppText variant="body">Category</AppText>
-            {propertyCategories.map((item) => (
-              <AppButton
-                key={item.value}
-                label={item.label}
-                variant={category === item.value ? 'primary' : 'secondary'}
-                onPress={() => setCategory(item.value)}
+            <AppText variant="body">The listing stays hidden until an administrator approves it. House rules can be added from My properties after you submit.</AppText>
+            <View style={styles.section}>
+              <AppText variant="section">Basic details</AppText>
+              <AppTextField label="Property name" value={name} onChangeText={setName} autoCapitalize="words" />
+              <AppText variant="caption">Category</AppText>
+              <View style={styles.choices}>
+                {propertyCategories.map((item) => {
+                  const selected = category === item.value;
+                  return (
+                    <Pressable
+                      key={item.value}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      onPress={() => setCategory(item.value)}
+                      style={[styles.choice, selected && styles.choiceSelected]}>
+                      <AppText variant="body" style={selected ? styles.choiceSelectedLabel : styles.choiceLabel}>
+                        {item.label}
+                      </AppText>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+            <View style={styles.section}>
+              <AppText variant="section">Location</AppText>
+              <AppTextField label="City" value={city} onChangeText={setCity} autoCapitalize="words" />
+              <AppTextField label="Locality" value={locality} onChangeText={setLocality} autoCapitalize="words" />
+              <AppTextField label="Address" value={address} onChangeText={setAddress} autoCapitalize="sentences" />
+            </View>
+            <View style={styles.section}>
+              <AppText variant="section">Description</AppText>
+              <AppTextField
+                label="Description"
+                value={description}
+                onChangeText={setDescription}
+                autoCapitalize="sentences"
+                multiline
               />
-            ))}
-            <AppTextField label="City" value={city} onChangeText={setCity} autoCapitalize="words" />
-            <AppTextField label="Locality" value={locality} onChangeText={setLocality} autoCapitalize="words" />
-            <AppTextField label="Address" value={address} onChangeText={setAddress} autoCapitalize="sentences" />
-            <AppTextField
-              label="Description"
-              value={description}
-              onChangeText={setDescription}
-              autoCapitalize="sentences"
-            />
-            <AppTextField label="Monthly rent in INR" value={rent} onChangeText={setRent} keyboardType="decimal-pad" />
+            </View>
+            <View style={styles.section}>
+              <AppText variant="section">Rent</AppText>
+              <AppText variant="caption">Monthly rent in rupees. Submitting does not take a payment.</AppText>
+              <AppTextField label="Monthly rent in INR" value={rent} onChangeText={setRent} keyboardType="decimal-pad" />
+            </View>
             {error ? <AppText style={styles.error}>{error}</AppText> : null}
-            {message ? <AppText variant="body">{message}</AppText> : null}
             {createdId ? (
-              <AppButton
-                label={uploadingPhoto ? 'Uploading...' : 'Add cover photo'}
-                disabled={uploadingPhoto}
-                onPress={() => void addCoverPhoto()}
-              />
+              <View style={styles.section}>
+                <SuccessIllustration />
+                <AppText variant="section">Cover photo</AppText>
+                <AppText variant="body">{message}</AppText>
+                <AppButton
+                  label={uploadingPhoto ? 'Uploading...' : 'Add cover photo'}
+                  disabled={uploadingPhoto}
+                  onPress={() => void addCoverPhoto()}
+                />
+              </View>
             ) : (
-              <AppButton
-                label={submitting ? 'Submitting...' : 'Submit for review'}
-                disabled={submitting}
-                onPress={() => void submitProperty()}
-              />
+              <>
+                {message ? <AppText variant="body">{message}</AppText> : null}
+                <AppButton
+                  label={submitting ? 'Submitting...' : 'Submit for review'}
+                  disabled={submitting}
+                  onPress={() => void submitProperty()}
+                />
+              </>
             )}
           </>
         )}
@@ -181,6 +212,43 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'flex-start',
     gap: Spacing.three,
+  },
+  section: {
+    width: '100%',
+    gap: Spacing.two,
+    backgroundColor: Brand.white,
+    borderColor: Brand.border,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    padding: Spacing.three,
+    ...Shadow.card,
+  },
+  choices: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  choice: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radius.button,
+    borderWidth: 1,
+    borderColor: Brand.border,
+    backgroundColor: Brand.white,
+  },
+  choiceSelected: {
+    backgroundColor: Brand.primary,
+    borderColor: Brand.primary,
+  },
+  choiceLabel: {
+    color: Brand.text,
+    fontWeight: '700',
+  },
+  choiceSelectedLabel: {
+    color: Brand.white,
+    fontWeight: '700',
   },
   error: {
     color: Brand.danger,
